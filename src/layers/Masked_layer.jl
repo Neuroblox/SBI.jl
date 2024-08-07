@@ -105,7 +105,7 @@ end
 function sample(T::MADE, ps, st; samples = randn(T.layers[1].in_dims))
   input = T.layers[1].in_dims
   order = sortperm(T.order) # gets the index for the m_k values in increasing order
-  println(samples)
+  #println(samples)
   for i in order
     mean = T(samples, ps, st)[1][i]
     std = exp(T(samples, ps, st)[1][i+input])
@@ -126,7 +126,7 @@ function generate_m_k(layers, random_order::Bool; num_conditional=0)
   end
 
   dims = [(i.in_dims, i.out_dims) for i in layers]
-  println(dims)
+  #println(dims)
 
   D = dims[1][1]
   D = D - num_conditional
@@ -138,7 +138,7 @@ function generate_m_k(layers, random_order::Bool; num_conditional=0)
     push!(integer_assign,1:D)
   end
 
-  println(D)
+  #println(D)
 
   for i in dims[1:end-1]
     push!(integer_assign, rand(1:D-1, i[2])) #TODO double check the integer assign is working
@@ -242,15 +242,15 @@ function sample(T::conditional_MADE, ps, st; samples = randn(T.layers[1].in_dims
   input = T.layers[1].in_dims
   output = T.layers[end].out_dims
   non_conditional_input = div(output,2)
-  println(T.order[1:non_conditional_input])
+  #println(T.order[1:non_conditional_input])
   input_m_k = copy(T.order[1:non_conditional_input])
   order = sortperm(input_m_k) # gets the index for the m_k values in increasing order
-  println("t.order is ", T.order, order)
+  #println("t.order is ", T.order, order)
   order = order[1:non_conditional_input,:]
-  println(samples)
+  #println(samples)
   for i in order
     mean = T(samples, ps, st)[1][i]
-    println("quick debug stuff",i, non_conditional_input)
+    #println("quick debug stuff",i, non_conditional_input)
     std = exp(T(samples, ps, st)[1][i+non_conditional_input ])
     samples[i] = std*samples[i] + mean
   end
@@ -299,7 +299,8 @@ calls = [:(($(x_symbols[i + 1]), $(st_symbols[i])) = Lux.apply(layers.$(fields[i
 
 push!(calls, :(st = NamedTuple{$fields}((($(Tuple(st_symbols)...),)))))
 push!(calls, :(return $(x_symbols[N + 1]), st))
-return Expr(:block, :(println(size($(x_symbols[1])))), :(println("This is right after")), calls...)
+#return Expr(:block, :(println(size($(x_symbols[1])))), :(println("This is right after")), calls...)
+return Expr(:block, calls...)
 end
 
 
@@ -326,10 +327,10 @@ end
     n = div(size(y_pred)[1], 2)
     half1 = @view y_pred[1:n,:]
     half2 = @view y_pred[n+1:end,:]
-    println(x[:,1])
-    println(half1[:,1], half2[:,1], y_pred[:,1])
+    #println(x[:,1])
+    #println(half1[:,1], half2[:,1], y_pred[:,1])
     u = (x .- half1).*exp.(-half2)
-    println(u[:,1])
+    #println(u[:,1])
   return u
 end
 
@@ -422,7 +423,7 @@ return Expr(:block, calls1...)
 end
 
 function expr_forward(layer::MADE, input, ps, st, conditionals)
-  println("A MADE LAYER FORWARD PASS WAS TRIGGERED")
+  #println("A MADE LAYER FORWARD PASS WAS TRIGGERED")
   output, output_st  = Lux.apply(layer, input, ps,st)
   output_pre = copy(output)
   output = coord_transform(input, output)
@@ -431,7 +432,7 @@ end
 
 
 function expr_forward(layer::BatchNorm, input, ps, st, conditionals)
-  println("A BATCH NORM FORWARD PASS WAS TRIGGERED")
+  #println("A BATCH NORM FORWARD PASS WAS TRIGGERED")
   output, output_st  = Lux.apply(layer, input, ps,st)
   output_pre = copy(output)
   output = coord_transform(input, output)
@@ -440,7 +441,7 @@ end
 
 
 function expr_forward(layer::BatchNorm, input, ps, st, conditionals)
-  println("A BATCH NORM LAYER FORWARD PASS WAS TRIGGERED")
+  #println("A BATCH NORM LAYER FORWARD PASS WAS TRIGGERED")
   output, output_st  = Lux.apply(layer, input, ps,st)
   output_pre = zeros(eltype(output), size(output))
   return(output, output_st, output_pre)
@@ -454,13 +455,13 @@ function expr_forward(layer::conditional_MADE, input, ps, st, conditionals; fina
   #println(output_size)
   num_inputs = Int(output_size / 2)
   input = input[1:num_inputs,:]
-  println("hi")
-  println(size(input), size(conditionals))
+  #println("hi")
+  #println(size(input), size(conditionals))
   input_full = vcat(input, conditionals)
   #println("this is right before checking input full amount")
   #println(size(input_full))
   output, output_st  = Lux.apply(layer, input_full, ps, st)
-  println("layer applied")
+  #println("layer applied")
   output_pre = copy(output)
   output = coord_transform(input, output)
   #println("coord transform applied")
@@ -476,7 +477,7 @@ end
 function sample(T::conditional_MAF, ps, st; conditional = randn(T.conditional_num))
   _sample = randn((T.layers[1].layers[1].in_dims - T.conditional_num))
   _sample = vcat(_sample, conditional)
-  println(_sample)
+  #println(_sample)
   for i in reverse(eachindex(T.layers))
     _sample = sample(T.layers[i], ps[i], st[i], samples = _sample)
   end
