@@ -1,7 +1,7 @@
 using Lux, Optimisers, Random, Zygote
 
 function log_std_loss(y_pred, data)
-    print(size(y_pred),size(data))
+    #print(size(y_pred),size(data))
     #print(data)
     n = div(size(y_pred)[1], 2)
     data = data[1:n]
@@ -25,8 +25,8 @@ function log_std_loss2(y_pred, data, extra)
     sum_output = sum(extra)
 
     #println(extra)
-    println("logstd_loss2_called")
-    println(size(y_pred),size(data))
+    #println("logstd_loss2_called")
+    #println(size(y_pred),size(data))
     #print(data)
     n = div(size(y_pred)[1], 2)
     half1 = @view y_pred[1:n,:]
@@ -36,17 +36,17 @@ function log_std_loss2(y_pred, data, extra)
     #println(y_pred)
     #println(n, half1, half2)
 
-    print("This is the set of variances fo fuck rith offf   ")
-    println(half2)
-    print("this is data")
-    println(data)
-    println("this is the first half")
-    println(half1)
+    #print("This is the set of variances fo fuck rith offf   ")
+    #println(half2)
+    #print("this is data")
+    #println(data)
+    #println("this is the first half")
+    #println(half1)
 
     u = (data.-half1).*exp.(-half2)
-    println(u)
-    println("This is right before I need it")
-    println(size(u), size(half2_all))
+    #println(u)
+    #println("This is right before I need it")
+    #println(size(u), size(half2_all))
     negloglike = 0.5*log(2*pi) .+ 0.5.*(u.^2) .+ half2_all
 
     #println("debug negloglike $negloglike")
@@ -56,7 +56,7 @@ function log_std_loss2(y_pred, data, extra)
     if (negloglike == Inf) 
         DomainError(val) 
     end
-    println("about to return negloklike")
+    #println("about to return negloklike")
     return negloglike
 end
 
@@ -82,7 +82,7 @@ function lux_gaussian_made_loss(model, ps, st, data)
 end
 
 function lux_gaussian_maf_loss(model, ps, st, data)
-    println("loss function called")
+    #println("loss function called")
     y, st, x1, x2...  = Lux.apply(model, data, ps, st)
     #println(x1)
     #println(size(x2))
