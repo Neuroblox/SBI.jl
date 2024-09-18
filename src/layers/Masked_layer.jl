@@ -39,9 +39,9 @@ Added a traditional mask to a traditional fully connected layer, blocking certai
 ## Parameters
 
 - `weight`: Weight Matrix of size `(out_dims, in_dims)`
-- `bias`: Bias of size `(out_dims, 1)` (present if `use_bias=true`)
+- `bias`: Bias of size `(out_dims, 1)` (present if `use_bia::uuus=true`)
 """
-@concrete struct MaskedLinear <: Lux.AbstractExplicitLayer
+@concrete struct MaskedLinear <: Lux.AbstractLuxLayer
   activation
   in_dims::Int
   out_dims::Int
@@ -95,7 +95,7 @@ end
 
 # TODO GIve a more detailed comment on this layer onsistent with the others
 # MADE container - containter of MaskedLinear Layers (implemented as a Guassian Made)
-struct MADE{T <: NamedTuple} <: Lux.AbstractExplicitContainerLayer{(:layers,)}
+struct MADE{T <: NamedTuple} <: Lux.AbstractLuxContainerLayer{(:layers,)}
   layers::T
   mask::Base.RefValue{}
   order::AbstractArray{Int}
@@ -231,7 +231,7 @@ MADE(; kwargs...) = MADE((; kwargs...))
 # TODO GIve a more detailed comment on this layer onsistent with the others
 # MADE container - containter of MaskedLinear Layers (implemented as a Guassian Made)
 
-struct conditional_MADE{T <: NamedTuple} <: Lux.AbstractExplicitContainerLayer{(:layers,)}
+struct conditional_MADE{T <: NamedTuple} <: Lux.AbstractLuxContainerLayer{(:layers,)}
   layers::T
   mask::Base.RefValue{}
   order::AbstractArray{Int}
@@ -310,7 +310,7 @@ conditional_MADE(; kwargs...) = conditional_MADE((; kwargs...))
 # MAF layer (chain of MADE)
 
 
-struct MAF{T <: NamedTuple} <: Lux.AbstractExplicitContainerLayer{(:layers,)}
+struct MAF{T <: NamedTuple} <: Lux.AbstractLuxContainerLayer{(:layers,)}
   layers::T
 end
 
@@ -382,7 +382,7 @@ end
 # conditional MAF layer (chain of MADE with the conditional flag set to true)
 
 
-struct conditional_MAF{T <: NamedTuple} <: Lux.AbstractExplicitContainerLayer{(:layers,)}
+struct conditional_MAF{T <: NamedTuple} <: Lux.AbstractLuxContainerLayer{(:layers,)}
   layers::T
   conditional_num::Int
 end
