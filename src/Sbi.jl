@@ -1,5 +1,8 @@
 module Sbi
 
+ __precompile__(false)
+
+
 using Random
 using Lux
 using ConcreteStructs
