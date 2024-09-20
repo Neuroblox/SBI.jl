@@ -1,6 +1,7 @@
 using Turing
 using MLUtils
 using Distributions
+using LinearAlgebra, Zygote, ADTypes, Optimisers, Lux, Random, Optimisers, CUDA
 
 function generate_simple_test(θ)
      return θ .+ 1.1*rand(3)
@@ -42,5 +43,40 @@ end
 b = generate_dataloader(generate_simple_test, prior, 10, 6, 100)
 
 
+## Define the Neural Network Architecture
+
+using Sbi
+
+rng = MersenneTwister()
+Random.seed!(rng, 12345)
+opt = Adam(0.060)
 
 
+MADE1 = conditional_MADE(MaskedLinear(6,4,relu), MaskedLinear(4,6))
+MADE2 = conditional_MADE(MaskedLinear(6,4,relu), MaskedLinear(4,6), random_order=true)
+
+# temporarily deactivate for debugging purposes
+#model = conditional_MAF(MADE1,MADE2)
+
+model = conditional_MADE(MaskedLinear(6,4,relu), MaskedLinear(4,6))
+
+ps, st = Lux.setup(rng, model) 
+
+tstate = Lux.Training.TrainState(model, ps, st, opt)
+
+train_dataloader = b
+
+vjp_rule = Lux.Training.AutoZygote()
+ADTypes.AutoZygote()
+
+function main(tstate::Lux.Training.TrainState, vjp, data_loader, epochs)
+     for epochs in 1:epochs
+          for data in data_loader
+               grads, loss, stats, tstate = Lux.Training.compute_gradients(vjp,lux_gaussian_maf_loss, data, tstate)
+               println("Epoch: $(epoch) || Loss: $(loss)")
+               tstate = Lux.Training.apply_gradients(tstate, grads)
+          end
+     end
+end
+
+main(tstate, vjp_rule, train_dataloader, 1000)
