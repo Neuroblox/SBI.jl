@@ -2,6 +2,7 @@ using Sbi
 using Test
 using StableRNGs
 using Lux
+using Random
 
 @testset "Sbi.jl" begin
     # Write your tests here.
@@ -20,6 +21,17 @@ using Lux
 
         @test !haskey(ps, :bias)
         @test layer.activation == relu
+    end
+
+
+    @testset "dimensions" begin
+            layer = Dense(10, 5)
+            ps, st = Lux.setup(rng, layer)
+
+            @test size(first(Lux.apply(layer, randn(10), ps, st))) == (5,)
+            @test size(first(Lux.apply(layer, randn(10, 2), ps, st))) == (5, 2)
+
+            @test LuxCore.outputsize(layer, randn(10), rng) == (5,)
     end
 
     @testset "Mask" begin
