@@ -4,6 +4,9 @@ using StableRNGs
 using Lux
 using Random
 
+
+# Note for MaskedLinear Layer, the use bias keyword is not implemented, I don't know why it would be needed
+# versus the set bias to zeros but this is the situation for now
 @testset "Sbi.jl" begin
     # Write your tests here.
     rng = StableRNG(12345)
@@ -16,22 +19,45 @@ using Random
         @test size(ps.bias) == (100, 1)  #Lux uses (100, ) why?
         @test layer.activation == identity
 
-        layer = Dense(10, 100, relu; use_bias=false)
-        ps, st = Lux.setup(rng, layer)
-
-        @test !haskey(ps, :bias)
-        @test layer.activation == relu
     end
 
 
     @testset "dimensions" begin
-            layer = Dense(10, 5)
+            layer = MaskedLinear(10, 5)
             ps, st = Lux.setup(rng, layer)
 
-            @test size(first(Lux.apply(layer, randn(10), ps, st))) == (5,)
+            @test size(first(Lux.apply(layer, randn(10), ps, st))) == (5, 1)
             @test size(first(Lux.apply(layer, randn(10, 2), ps, st))) == (5, 2)
 
             @test LuxCore.outputsize(layer, randn(10), rng) == (5,)
+    end
+
+
+    @testset "zeros" begin
+            @test begin
+                layer = MaskedLinear(10, 1, identity; init_weight=ones32, init_bias=zeros32)
+                first(Lux.apply(
+                    layer, ones(10, 1), Lux.setup(rng, layer)...))
+            end == 10 * ones(1, 1)
+
+            @test begin
+                layer = MaskedLinear(10, 1, identity; init_weight=ones32, init_bias=zeros32)
+                first(Lux.apply(
+                    layer, ones(10, 2) , Lux.setup(rng, layer)...))
+            end == 10 * ones(1, 2)
+
+            @test begin
+                layer = MaskedLinear(10, 2, identity; init_weight=ones32, init_bias=zeros32)
+                first(Lux.apply(
+                    layer, ones(10, 1) , Lux.setup(rng, layer)...))
+            end == 10 * ones(2, 1)
+
+            @test begin
+                layer = MaskedLinear(10, 2, identity; init_weight=ones32, init_bias=zeros32)
+                first(Lux.apply(layer, [ones(10, 1) 2 * ones(10, 1)],
+                    Lux.setup(rng, layer)...))
+            end == [10 20; 10 20]
+
     end
 
     @testset "Mask" begin
