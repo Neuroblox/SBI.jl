@@ -41,7 +41,7 @@ Added a traditional mask to a traditional fully connected layer, blocking certai
 - `weight`: Weight Matrix of size `(out_dims, in_dims)`
 - `bias`: Bias of size `(out_dims, 1)` (present if `use_bias=true`)
 """
-@concrete struct MaskedLinear <: Lux.AbstractExplicitLayer
+@concrete struct MaskedLinear <: Lux.AbstractLuxLayer
   activation
   in_dims::Int
   out_dims::Int
@@ -95,8 +95,8 @@ end
 
 # TODO GIve a more detailed comment on this layer onsistent with the others
 # MADE container - containter of MaskedLinear Layers (implemented as a Guassian Made)
-struct MADE{T <: NamedTuple} <: Lux.AbstractExplicitContainerLayer{(:layers,)}
-  layers::T
+@concrete struct MADE <: Lux.AbstractLuxWrapperLayer{:layers}
+  layers <: NamedTuple
   mask::Base.RefValue{}
   order::AbstractArray{Int}
 end
@@ -231,7 +231,7 @@ MADE(; kwargs...) = MADE((; kwargs...))
 # TODO GIve a more detailed comment on this layer onsistent with the others
 # MADE container - containter of MaskedLinear Layers (implemented as a Guassian Made)
 
-struct conditional_MADE{T <: NamedTuple} <: Lux.AbstractExplicitContainerLayer{(:layers,)}
+struct conditional_MADE{T <: NamedTuple} <: Lux.AbstractLuxContainerLayer{(:layers,)}
   layers::T
   mask::Base.RefValue{}
   order::AbstractArray{Int}
@@ -310,8 +310,8 @@ conditional_MADE(; kwargs...) = conditional_MADE((; kwargs...))
 # MAF layer (chain of MADE)
 
 
-struct MAF{T <: NamedTuple} <: Lux.AbstractExplicitContainerLayer{(:layers,)}
-  layers::T
+@concrete struct MAF <: Lux.AbstractLuxWrapperLayer{:layers}
+  layers <: NamedTuple
 end
 
 function MAF(layers...;)
@@ -382,7 +382,7 @@ end
 # conditional MAF layer (chain of MADE with the conditional flag set to true)
 
 
-struct conditional_MAF{T <: NamedTuple} <: Lux.AbstractExplicitContainerLayer{(:layers,)}
+struct conditional_MAF{T <: NamedTuple} <: Lux.AbstractLuxContainerLayer{(:layers,)}
   layers::T
   conditional_num::Int
 end
@@ -404,7 +404,7 @@ x_symbols = vcat([:x], [gensym() for _ in 1:N])
 total_std = [gensym() for _ in 1:N]
 st_symbols = [gensym() for _ in 1:N]
 calls1 = [:(($(x_symbols[i + 1]), $(st_symbols[i]), $(total_std[i])) = expr_forward(layers.$(fields[i]),
-  $(x_symbols[i]), ps.$(fields[i]), st.$(fields[i]), conditionals)) for i in 1:N]
+  $(x_symbols[i]), ps.$(fields[i]), st.$(fields[i]), conditionals)) for i in 1:N-1]
 #calls2 = [:($(x_symbols[i]) = coord_transform($(x_symbols[i-1]),$(x_symbols[i]))) for i in 2:N]
 #=push!(calls1, :(($(x_symbols[i + 1]), $(st_symbols[i])) = Lux.apply(layers.$(fields[N]),
 $(x_symbols[N]), ps.$(fields[N]), st.$(fields[N]))))=#
@@ -427,23 +427,6 @@ function expr_forward(layer::MADE, input, ps, st, conditionals)
   output, output_st  = Lux.apply(layer, input, ps,st)
   output_pre = copy(output)
   output = coord_transform(input, output)
-  return(output, output_st, output_pre)
-end
-
-
-function expr_forward(layer::BatchNorm, input, ps, st, conditionals)
-  #println("A BATCH NORM FORWARD PASS WAS TRIGGERED")
-  output, output_st  = Lux.apply(layer, input, ps,st)
-  output_pre = copy(output)
-  output = coord_transform(input, output)
-  return(output, output_st, output_pre)
-end
-
-
-function expr_forward(layer::BatchNorm, input, ps, st, conditionals)
-  #println("A BATCH NORM LAYER FORWARD PASS WAS TRIGGERED")
-  output, output_st  = Lux.apply(layer, input, ps,st)
-  output_pre = zeros(eltype(output), size(output))
   return(output, output_st, output_pre)
 end
 
