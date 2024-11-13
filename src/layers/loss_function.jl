@@ -4,7 +4,7 @@ function log_std_loss(y_pred, data)
     #print(size(y_pred),size(data))
     #print(data)
     n = div(size(y_pred)[1], 2)
-    data = data[1:n]
+    #data = data[1:n]
 
 
     half1 = @view y_pred[1:n,:]
