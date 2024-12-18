@@ -1,6 +1,10 @@
 using Random
 using Lux
 using ConcreteStructs
+using Static
+using SIMDTypes
+
+const BoolType = Union{StaticBool, Bool, Val{true}, Val{false}}
 
 
 """
@@ -47,6 +51,7 @@ Added a traditional mask to a traditional fully connected layer, blocking certai
   out_dims::Int
   init_weight
   init_bias
+  use_bias <: StaticBool
   init_mask::Base.RefValue{Matrix{Float32}}
 end
 
@@ -64,10 +69,10 @@ end
 # added a mak to the constructor
 #used a reference since it needs to be mutable, and that cant happen with direct storage in a concrete structure
 function MaskedLinear(in_dims::Int, out_dims::Int, activation=identity; init_weight=glorot_uniform,
-        init_bias=zeros32)
+        init_bias=zeros32, use_bias::BoolType=True())
         init_mask=ones(Float32, out_dims, in_dims)
         init_mask_ref = Ref(init_mask)
-  return MaskedLinear(activation, in_dims, out_dims, init_weight, init_bias, init_mask_ref)
+  return MaskedLinear(activation, in_dims, out_dims, init_weight, init_bias, use_bias, init_mask_ref)
 end
 
 function Lux.initialparameters(rng::AbstractRNG, d::MaskedLinear)
