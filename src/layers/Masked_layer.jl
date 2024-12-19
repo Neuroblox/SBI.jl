@@ -339,6 +339,21 @@ end
   return u
 end
 
+
+# simple macro that transforms x to there correspoding random variable representation
+#used in the flow part of Masked autoregressive flow
+# Note smooth version should give better stability in training
+@inline function coord_transform_smooth(x, y_pred)
+  n = div(size(y_pred)[1], 2)
+  half1 = @view y_pred[1:n,:]
+  half2 = @view y_pred[n+1:end,:]
+  #println(x[:,1])
+  #println(half1[:,1], half2[:,1], y_pred[:,1])
+  u = (x .- half1).*log.(1 + exp.(-half2))
+  #println(u[:,1])
+return u
+end
+
 # forward pass, use the coord transform
 # TODO Test this and make sure its not causing the bug that keeps coming up
 @generated function applyMAF(layers::NamedTuple{fields}, x, ps,
