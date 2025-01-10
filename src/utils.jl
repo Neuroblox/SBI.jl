@@ -7,6 +7,15 @@ function softplus(x::Number; β::Number = 1.0, threshold::Number = 20, ϵ::Numbe
     end
 end
 
+#divides along the rows in 2 for made_output
+# assumes each column of u is a different data point
+function inverse(u, made_output)
+    n = div(size(made_output)[1], 2)
+    half1 = @view made_output[1:n,:]
+    half2 = @view made_output[n+1:end,:]
+    return u .* softplus.(half2) + half1
+end
+
 
 #=
 using Plots
