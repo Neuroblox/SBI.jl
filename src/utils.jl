@@ -16,6 +16,13 @@ function inverse(u, made_output)
     return u .* softplus.(half2) + half1
 end
 
+function forward(x, made_output)
+    n = div(size(made_output)[1], 2)
+    half1 = @view made_output[1:n,:]
+    half2 = @view made_output[n+1:end,:]
+    return (x.-half1)./softplus.(half2)
+end
+
 
 #=
 using Plots
