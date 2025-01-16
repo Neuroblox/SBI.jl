@@ -2,12 +2,13 @@ module Sbi
 
  __precompile__(false)
 
-
 using Random
 using Lux
 using ConcreteStructs
 using Lux, Optimisers, Random, Zygote
 using Statistics
+using Static
+using SIMDTypes
 
 # Write your package code here.
 
