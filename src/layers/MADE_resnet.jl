@@ -7,6 +7,7 @@ using SIMDTypes
 const BoolType = Union{StaticBool, Bool, Val{true}, Val{false}}
 
 include("../utils.jl")
+include("Masked_layer.jl")
 
 
 # MADE_resnet
@@ -19,18 +20,33 @@ include("../utils.jl")
 
 @concrete struct MADE_relu <: Lux.AbstractLuxWrapperLayer{:layers}
     layers <: NamedTuple
+    mask::Base.RefValue{}
+    order::AbstractArray{Int}
 end
 
 function MADE_relu(in_dim, hidden_dim; gaussianMADE::Bool=true, random_order::Bool=false)
 
-    internal_layer = SkipConnection(Chain(Dense(hidden_dim,hidden_dim, relu), Dense(hidden_dim,hidden_dim, relu)),+)
-    initial_layer = Dense(in_dim, hidden_dim, relu)
-    final_layer = Dense(hidden_dim, in_dim)
+    internal_layer = SkipConnection(Chain(MaskedLinear(hidden_dim,hidden_dim, relu), MaskedLinear(hidden_dim,hidden_dim, relu)),+)
+    initial_layer = MaskedLinear(in_dim, hidden_dim, relu)
+    final_layer = MaskedLinear(hidden_dim, in_dim*2)
 
     layers = NamedTuple{(:initial_layer, :internal_layer, :final_layer)}((initial_layer, internal_layer, final_layer)) 
+
+    expanded_layers = layers.initial_layer, layers.internal_layer.layers[1], layers.internal_layer.layers[2], layers.final_layer
+
+    m_k = generate_m_k(expanded_layers, false) # look uo exactly what scale random order means
+
+    order = m_k[1]
+
+    mask = generate_masks(m_k, true)
+    mask_ref = Ref(mask)
+
+    for i in eachindex(expanded_layers)
+        set_mask(expanded_layers[i],mask[i])
+    end
+
+    return MADE_relu(layers, mask_ref, order)
   
-  
-    return MADE_relu(layers)
 end
 # -------------------------------------------------------------------
 # MADE Container Layer
@@ -48,6 +64,7 @@ end
     $(x_symbols[i]), ps.$(fields[i]), st.$(fields[i]))) for i in 1:N]
   
   push!(calls, :(st = NamedTuple{$fields}((($(Tuple(st_symbols)...),)))))
+  #Add a debug checking
   push!(calls, :(return $(x_symbols[N + 1]), st))
   return Expr(:block, calls...)
   end
@@ -56,4 +73,21 @@ end
   
   
 (c::MADE_relu)(x, ps, st::NamedTuple) = applyMADE_relu(c.layers, x, ps, st)  
+
+function sample(T::MADE_relu, ps, st; samples = randn(T.layers[1].in_dims), use_softplus::Bool=false)
+  input = T.layers[1].in_dims
+  order = sortperm(T.order) # gets the index for the m_k values in increasing order
+  #println(samples)
+  for i in order
+    if use_softplus
+      mean = T(samples, ps, st)[1][i]
+      std = softplus.(T(samples, ps, st)[1][i+input])
+    else
+      mean = T(samples, ps, st)[1][i]
+      std = exp(T(samples, ps, st)[1][i+input])
+    end
+    samples[i] = std*samples[i] + mean
+  end
+  return samples
+end
   
