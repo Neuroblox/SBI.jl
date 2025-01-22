@@ -6,6 +6,8 @@ using SIMDTypes
 
 const BoolType = Union{StaticBool, Bool, Val{true}, Val{false}}
 
+include("../utils.jl")
+
 
 """
 MaskedLinear(in_dims => out_dims, activation=identity; init_weight=glorot_uniform,
@@ -107,13 +109,18 @@ end
 end
 
 # Implements the sample function to sample from the distribution represented by the MADE container
-function sample(T::MADE, ps, st; samples = randn(T.layers[1].in_dims))
+function sample(T::MADE, ps, st; samples = randn(T.layers[1].in_dims), use_softplus::Bool=false)
   input = T.layers[1].in_dims
   order = sortperm(T.order) # gets the index for the m_k values in increasing order
   #println(samples)
   for i in order
-    mean = T(samples, ps, st)[1][i]
-    std = exp(T(samples, ps, st)[1][i+input])
+    if use_softplus
+      mean = T(samples, ps, st)[1][i]
+      std = softplus.(T(samples, ps, st)[1][i+input])
+    else
+      mean = T(samples, ps, st)[1][i]
+      std = exp(T(samples, ps, st)[1][i+input])
+    end
     samples[i] = std*samples[i] + mean
   end
   return samples
@@ -317,14 +324,16 @@ conditional_MADE(; kwargs...) = conditional_MADE((; kwargs...))
 
 @concrete struct MAF <: Lux.AbstractLuxWrapperLayer{:layers}
   layers <: NamedTuple
+  softplus::Bool
 end
 
-function MAF(layers...;)
+function MAF(layers...; softplus::Bool=false)
   names = ntuple(i -> Symbol("MADE_$i"), length(layers))
-  return MAF(NamedTuple{names}(layers))
+  return MAF(NamedTuple{names}(layers), softplus)
 end
 
-(c::MAF)(x, ps, st::NamedTuple) = applyMAF(c.layers, x, ps, st)
+(c::MAF)(x, ps, st::NamedTuple) = c.softplus ? applyMAF_smooth(c.layers, x, ps, st) : applyMAF(c.layers, x, ps, st)
+#(c::MAF)(x, ps, st::NamedTuple) = applyMAF(c.layers, x, ps, st)
 
 # simple macro that transforms x to there correspoding random variable representation
 #used in the flow part of Masked autoregressive flow
@@ -344,12 +353,14 @@ end
 #used in the flow part of Masked autoregressive flow
 # Note smooth version should give better stability in training
 @inline function coord_transform_smooth(x, y_pred)
-  n = div(size(y_pred)[1], 2)
-  half1 = @view y_pred[1:n,:]
-  half2 = @view y_pred[n+1:end,:]
-  #println(x[:,1])
+  #n = div(size(y_pred)[1], 2)
+  #half1 = @view y_pred[1:n,:]
+  #half2 = @view y_pred[n+1:end,:]
+  #println(x)
+  #println(y_pred)
   #println(half1[:,1], half2[:,1], y_pred[:,1])
-  u = (x .- half1).*log.(1 + exp.(-half2))
+  u = forward(x, y_pred)
+  #println(u)
   #println(u[:,1])
 return u
 end
@@ -388,12 +399,46 @@ return Expr(:block, calls...)
 end
 
 
+# forward pass, use the coord transform
+# TODO Test this and make sure its not causing the bug that keeps coming up
+@generated function applyMAF_smooth(layers::NamedTuple{fields}, x, ps,
+  st::NamedTuple{fields}) where {fields}
+N = length(fields) #number of MADE layers
+x_symbols = vcat([:x], [gensym() for _ in 1:N])
+total_std = [gensym() for _ in 1:N]
+st_symbols = [gensym() for _ in 1:N]
+calls1 = [:(($(x_symbols[i + 1]), $(st_symbols[i])) = Lux.apply(layers.$(fields[i]),
+  $(x_symbols[i]), ps.$(fields[i]), st.$(fields[i]))) for i in 1:N]
+calls2 = [:($(x_symbols[i]) = coord_transform_smooth($(x_symbols[i-1]),$(x_symbols[i]))) for i in 2:N]
+calls3 = [:($(total_std[i]) = copy($(x_symbols[i+1]))) for i in 1:N]
+
+
+
+n = length(calls1) + length(calls2) + length(calls3)
+calls = similar(calls1, n)
+
+#add up all the log std for each layer
+#each_layer_ouptut = :([$(x_symbols[N]) for i in 1:N])
+
+################# add the definition of total_std as an array in the list of blocks
+#calls[1] .= :($(x_symbols[1]) = 1)
+calls[1:3:n] .= calls1
+calls[2:3:n] .= calls3
+calls[3:3:n] .= calls2
+
+
+push!(calls, :(st = NamedTuple{$fields}((($(Tuple(st_symbols)...),)))))
+push!(calls, :(return $(x_symbols[N + 1]), st, $(x_symbols[N]), $(total_std...)))
+return Expr(:block, calls...)
+end
+
+
 #The sample function for the MAF
 #TODO Also needs to verify this is not causing the bug
-function sample(T::MAF, ps, st)
-  _sample = randn(T.layers[1].layers[1].in_dims)
+function sample(T::MAF, ps, st; specific_sample = randn(T.layers[1].layers[1].in_dims))
+  _sample = specific_sample
   for i in reverse(eachindex(T.layers))
-    _sample = sample(T.layers[i], ps[i], st[i], samples = _sample)
+    _sample = sample(T.layers[i], ps[i], st[i], samples = _sample, use_softplus = T.softplus)
   end
   return _sample
 end

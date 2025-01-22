@@ -1,4 +1,5 @@
 using Lux, Optimisers, Random, Zygote
+include("../utils.jl")
 
 function log_std_loss(y_pred, data)
     #print(size(y_pred),size(data))
@@ -20,6 +21,8 @@ function log_std_loss(y_pred, data)
     end
     return negloglike
 end
+
+
 
 function log_std_loss2(y_pred, data, extra)
     sum_output = sum(extra)
@@ -43,6 +46,7 @@ function log_std_loss2(y_pred, data, extra)
     #println("this is the first half")
     #println(half1)
 
+    # ------------------------------------------ THIS IS THE BUG ---------------------------------------
     u = (data.-half1).*exp.(-half2)
     #println(u)
     #println("This is right before I need it")
@@ -57,6 +61,23 @@ function log_std_loss2(y_pred, data, extra)
         DomainError(val) 
     end
     #println("about to return negloklike")
+    return negloglike
+end
+
+function log_std_loss2_smooth(y_pred, data, extra)
+    sum_output = sum(log.(softplus.(i)) for i in extra)
+
+    n = div(size(y_pred)[1], 2)
+    half2_all = @view sum_output[n+1:end,:]
+    println(sum(mean(half2_all, dims=2)))
+    # ------------------------------------------ THIS IS THE BUG ---------------------------------------
+    u = forward(data, y_pred)
+    negloglike = 0.5*log(2*pi) .+ 0.5.*(u.^2) .+ half2_all
+    negloglike = mean(negloglike, dims=2)
+    negloglike = sum(negloglike)
+    if (negloglike == Inf) 
+        DomainError(val) 
+    end
     return negloglike
 end
 
@@ -86,6 +107,10 @@ function lux_gaussian_maf_loss(model, ps, st, data)
     y, st, x1, x2...  = Lux.apply(model, data, ps, st)
     #println(x1)
     #println(size(x2))
-    loss = log_std_loss2(y, x1, x2) #TODO double check this
+    if model.softplus
+        loss = log_std_loss2_smooth(y, x1, x2) #TODO double check this
+    else
+        loss = log_std_loss2(y, x1, x2) #TODO double check thiso
+    end
     return loss, st, ()
 end
