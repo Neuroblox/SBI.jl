@@ -9,3 +9,27 @@ inverse_transform = inverse(u, made_output)
 
 isapprox(ground_truth, inverse_transform, atol=1e-5)
 
+using Lux, Optimisers, Random, Zygote, ADTypes, LinearAlgebra, ConcreteStructs, OneHotArrays
+
+using Sbi
+using CairoMakie
+
+rng = MersenneTwister()
+Random.seed!(rng, 12345)
+
+# Set the optimizer model
+opt = Adam(0.060)
+
+model1 = MADE_relu(4, 20)
+model2 = MADE_relu(4, 20, random_order=true)
+model3 = MADE_relu(4, 20, random_order=true)
+
+model = MAF(model1, model2, model3, softplus=true)
+
+testx = rand(4,5)
+
+ps, st = Lux.setup(rng, model)
+tstate = Lux.Training.TrainState(model, ps, st, opt)
+
+save_model(tstate, "test_model")
+

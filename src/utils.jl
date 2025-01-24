@@ -1,3 +1,5 @@
+using JLD2
+
 
 function softplus(x::Number; β::Number = 1.0, threshold::Number = 20, ϵ::Number = 1e-3)
     if x*β > threshold
@@ -24,6 +26,11 @@ function forward(x, made_output)
 end
 
 
+function save_model(tstate, name)
+    save_object("$name.jld2", tstate)
+end
+
+
 #=
 using Plots
 
@@ -43,4 +50,3 @@ if abspath(PROGRAM_FILE) == @__FILE__
     savefig("softplus_function.png")
 end
 =#
-
