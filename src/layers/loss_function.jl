@@ -16,9 +16,9 @@ function log_std_loss(y_pred, data)
     negloglike = 0.5*log(2*pi) .+ 0.5.*(u.^2) .+ half2
     negloglike = mean(negloglike, dims=2)
     negloglike = sum(negloglike)
-    if (negloglike == Inf) 
-        DomainError(val) 
-    end
+    #if (negloglike == Inf) 
+     #   DomainError(val) 
+    #:wend
     return negloglike
 end
 
@@ -75,9 +75,9 @@ function log_std_loss2_smooth(y_pred, data, extra)
     negloglike = 0.5*log(2*pi) .+ 0.5.*(u.^2) .+ half2_all
     negloglike = mean(negloglike, dims=2)
     negloglike = sum(negloglike)
-    if (negloglike == Inf) 
-        DomainError(val) 
-    end
+    #if (negloglike == Inf) 
+    #    DomainError(val) 
+    #end
     return negloglike
 end
 
@@ -109,8 +109,10 @@ function lux_gaussian_maf_loss(model, ps, st, data)
     #println(size(x2))
     if model.softplus
         loss = log_std_loss2_smooth(y, x1, x2) #TODO double check this
+        println("using fotmax loss")
     else
         loss = log_std_loss2(y, x1, x2) #TODO double check thiso
+        println("using relu loss")
     end
     return loss, st, ()
 end

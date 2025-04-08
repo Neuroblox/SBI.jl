@@ -129,7 +129,7 @@ end
 
 #Generates a seet of integers for a layer consistent with the autoregressive property
 #used to calculate the mask
-function generate_m_k(layers, random_order::Bool; num_conditional=0)
+function generate_m_k(layers, random_order::Bool; num_conditional=0, order_permutation = 1)
   for i in layers
     #println("hi")
     #println(i)
@@ -147,7 +147,11 @@ function generate_m_k(layers, random_order::Bool; num_conditional=0)
   if random_order
     push!(integer_assign, randperm(D))
   else
-    push!(integer_assign,1:D)
+    if order_permutation == 1
+      push!(integer_assign, 1:D)
+    else
+      push!(integer_assign, D:-1:1)
+    end
   end
 
   #println(D)
@@ -435,10 +439,12 @@ end
 
 #The sample function for the MAF
 #TODO Also needs to verify this is not causing the bug
-function sample(T::MAF, ps, st; specific_sample = randn(T.layers[1].layers[1].in_dims))
+function sample(T::MAF, ps, st; specific_sample = randn(T.layers[1].layers[1].in_dims), debug = false)
   _sample = specific_sample
   for i in reverse(eachindex(T.layers))
     _sample = sample(T.layers[i], ps[i], st[i], samples = _sample, use_softplus = T.softplus)
+    debug && println("Layer $i: ", _sample)
+
   end
   return _sample
 end

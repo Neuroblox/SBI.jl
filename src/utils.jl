@@ -1,6 +1,3 @@
-using JLD2
-
-
 function softplus(x::Number; β::Number = 1.0, threshold::Number = 20, ϵ::Number = 1e-3)
     if x*β > threshold
         return β * x + ϵ

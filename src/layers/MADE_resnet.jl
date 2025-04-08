@@ -24,7 +24,7 @@ include("Masked_layer.jl")
     order::AbstractArray{Int}
 end
 
-function MADE_relu(in_dim, hidden_dim; gaussianMADE::Bool=true, random_order::Bool=false)
+function MADE_relu(in_dim, hidden_dim; gaussianMADE::Bool=true, random_order::Bool=false, order_permutation::Int=1)
 
     internal_layer = SkipConnection(Chain(MaskedLinear(hidden_dim,hidden_dim, relu), MaskedLinear(hidden_dim,hidden_dim, relu)),+)
     initial_layer = MaskedLinear(in_dim, hidden_dim, relu)
@@ -34,7 +34,8 @@ function MADE_relu(in_dim, hidden_dim; gaussianMADE::Bool=true, random_order::Bo
 
     expanded_layers = layers.initial_layer, layers.internal_layer.layers[1], layers.internal_layer.layers[2], layers.final_layer
 
-    m_k = generate_m_k(expanded_layers, false) # look uo exactly what scale random order means
+    m_k = generate_m_k(expanded_layers, random_order, order_permutation = order_permutation) # look uo exactly what scale random order means
+    m_k[end-1] = m_k[2] # Check this doesnt mess with anything to bad needed to preserve masked properties
 
     order = m_k[1]
 
@@ -74,7 +75,7 @@ end
   
 (c::MADE_relu)(x, ps, st::NamedTuple) = applyMADE_relu(c.layers, x, ps, st)  
 
-function sample(T::MADE_relu, ps, st; samples = randn(T.layers[1].in_dims), use_softplus::Bool=false)
+function sample(T::MADE_relu, ps, st; samples = randn(T.layers[1].in_dims), use_softplus::Bool=false, debug = false)
   input = T.layers[1].in_dims
   order = sortperm(T.order) # gets the index for the m_k values in increasing order
   #println(samples)
@@ -87,6 +88,8 @@ function sample(T::MADE_relu, ps, st; samples = randn(T.layers[1].in_dims), use_
       std = exp(T(samples, ps, st)[1][i+input])
     end
     samples[i] = std*samples[i] + mean
+    debug && println("Layer $i: mean = ", mean, ", std = ", std)
+    debug && println(samples)
   end
   return samples
 end

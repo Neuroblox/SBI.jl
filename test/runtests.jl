@@ -3,6 +3,7 @@ using Test
 using StableRNGs
 using Lux
 using Random
+using LuxTestUtils 
 
 
 # Note for MaskedLinear Layer, the use bias keyword is not implemented, I don't know why it would be needed
@@ -95,4 +96,63 @@ using Random
     end
 
 
+    @testset "Made" begin
+        layer = MADE(MaskedLinear(10, 15, relu), MaskedLinear(15,20) )
+        display(layer)
+        ps, st = Lux.setup(rng, layer)
+        x = rand(Float32, 10, 1) 
+
+
+        @jet layer(x, ps, st)
+
+
+
+        __f = (x, ps) -> sum(first(layer(x, ps, st)))
+        @test_gradients(__f, x, ps)
+
+
+        #Test The Output Size
+
+        @test size(first(Lux.apply(layer, ones(10, 5), ps, st))) == (20,5)
+
+
+        #test the dependancy issue
+
+        layer = MADE(MaskedLinear(2, 50, relu), MaskedLinear(50,4))
+        display(layer)
+        ps, st = Lux.setup(rng, layer)
+        
+        x1 = [1.0, 2.0]
+        x2 = [0.5, 2.0]
+
+        @test first(Lux.apply(layer, x1, ps, st)) != first(Lux.apply(layer, x2, ps, st))
+
+
+        # Tests for the redidual architecture
+
+        #Make sure the input is being aded to the output of the second layer
+
+        layer = Chain(MaskedLinear(4,50, relu), MaskedLinear(50,4) )
+
+        ps, st = Lux.setup(rng, layer)
+        
+        layer_1_params = ps[1].weight
+        layer_2_params = ps[2].weight
+
+        layer_1_mask = layer.layer_1.init_mask
+        layer_2_mask = layer.layer_2.init_mask
+
+        x = [1.0, 2.0]
+
+        masked_chain_output = first(Lux.apply(layer, x, ps, st))
+
+
+        layer_3 = MADE_resnet(resnet=true, inputsize = 2, hiddenlayer_size = 50)
+
+    end
+
+
+
+
+    
 end
