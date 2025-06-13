@@ -27,7 +27,7 @@ end
 function MADE_relu(in_dim, hidden_dim; gaussianMADE::Bool=true, random_order::Bool=false, order_permutation::Int=1)
 
     internal_layer = SkipConnection(Chain(MaskedLinear(hidden_dim,hidden_dim, relu), MaskedLinear(hidden_dim,hidden_dim, relu)),+)
-    initial_layer = MaskedLinear(in_dim, hidden_dim, relu)
+    initial_layer = MaskedLinear(in_dim, hidden_dim)
     final_layer = MaskedLinear(hidden_dim, in_dim*2)
 
     layers = NamedTuple{(:initial_layer, :internal_layer, :final_layer)}((initial_layer, internal_layer, final_layer)) 
@@ -70,8 +70,6 @@ end
   return Expr(:block, calls...)
   end
 
-
-  
   
 (c::MADE_relu)(x, ps, st::NamedTuple) = applyMADE_relu(c.layers, x, ps, st)  
 
@@ -87,10 +85,194 @@ function sample(T::MADE_relu, ps, st; samples = randn(T.layers[1].in_dims), use_
       mean = T(samples, ps, st)[1][i]
       std = exp(T(samples, ps, st)[1][i+input])
     end
-    samples[i] = std*samples[i] + mean
+    #samples[i] = std*samples[i] + mean
+    samples[i] = (samples[i]-mean)./std
     debug && println("Layer $i: mean = ", mean, ", std = ", std)
     debug && println(samples)
   end
   return samples
 end
+
+
   
+@concrete struct MADE_relu_conditional <: Lux.AbstractLuxWrapperLayer{:layers}
+    layers <: NamedTuple
+    mask::Base.RefValue{}
+    order::AbstractArray{Int}
+    context_dim::Int
+end
+
+function MADE_relu_conditional(in_dim, hidden_dim, context_dim; gaussianMADE::Bool=true, random_order::Bool=false, order_permutation::Int=1, internal_layer_num::Int=1)
+
+    internal_layer = SkipConnection(Chain(context(context_dim, hidden_dim, relu), MaskedLinear(hidden_dim,hidden_dim, relu), MaskedLinear(hidden_dim,hidden_dim, relu)),+)
+    initial_layer = MaskedLinear(in_dim, hidden_dim)
+    context_layer = context(context_dim, hidden_dim, relu)
+    final_layer = MaskedLinear(hidden_dim, in_dim*2)
+
+    layers = NamedTuple{(:initial_layer, :context_layer, :internal_layer, :final_layer)}((initial_layer, context_layer, internal_layer, final_layer)) 
+
+    expanded_layers = layers.initial_layer, layers.internal_layer.layers[1], layers.internal_layer.layers[2], layers.final_layer
+
+    m_k = generate_m_k(expanded_layers, random_order, order_permutation = order_permutation) # look uo exactly what scale random order means
+    m_k[end-1] = m_k[2] # Check this doesnt mess with anything to bad needed to preserve masked properties
+
+    order = m_k[1]
+
+    mask = generate_masks(m_k, true)
+    mask_ref = Ref(mask)
+
+    for i in eachindex(expanded_layers)
+        set_mask(expanded_layers[i],mask[i])
+    end
+
+    return MADE_relu_conditional(layers, mask_ref, order, context_dim)
+  
+end
+
+
+
+function Lux.initialstates(rng::AbstractRNG, l::MADE_relu_conditional{layers}) where {layers}
+  print("usining MADE relu initial states")
+  ctx = (context = l.layers.context_layer.in_dims,)
+  other = invoke(Lux.initialstates, Tuple{AbstractRNG, Lux.AbstractLuxWrapperLayer}, rng, l)
+  #other = context_state_finder(other, ctx.context)
+  #standard = NamedTuple{layers}(Lux.initialstates.(rng, getfield.((l,), layers)))
+  
+  println("hi", ctx)
+  println(other)
+  return merge(ctx, other)
+end
+
+
+
+  
+
+
+#This function iterates through the symbols in a named Tuple
+# If the symbol is called context_layer, we modify the state context in context layer
+function context_state_finder(st::NamedTuple, context_val)
+  for k in keys(st)
+    if k == :context_layer
+      st = merge(st,(context_layer = (context = context_val,),))
+    elseif k == :internal_layer
+      internal_st = st.internal_layer
+      internal_st = merge(internal_st, (layer_1 = (context = context_val,),)) # Assumes layer 1 is a context layer
+      st = merge(st, (internal_layer = internal_st,))
+    end
+  end
+  return st
+end
+
+# quick test for context_state_finder
+st = (context_layer = NamedTuple(), other_layer = (other = 1.2,))
+
+#This function will be called in the apply
+#Gets the context dimension from the state variable
+#seperates the context from the Input
+#sets the context state variable for the sub layers
+#returns the modified state and input
+function set_context(st::NamedTuple, x::AbstractVecOrMat)
+  context_dim = st.context
+  context = x[end-context_dim+1:end]
+  x = x[1:end-context_dim]
+  st = context_state_finder(st, context)
+  println("context", context)
+  println("x", x)
+  return st, x
+end
+
+
+
+
+function (c::MADE_relu_conditional)(x, ps, st::NamedTuple)
+  println("using custom dispatch")
+  st, x = set_context(st, x)
+  println("st", st)
+  return applyMADE_relu_conditional(c.layers, x, ps, st)
+end
+
+# -------------------------------------------------------------------
+# MADE Container Layer
+
+
+  #TODO Figure out why these generated funtions are used, probably for optimization reasons
+  # essentially just the forward pass
+
+  #how did the old conditionals work?
+  # Note now we have the context thing to worry about
+  #removed fields from st
+  @generated function applyMADE_relu_conditional(layers::NamedTuple{fields}, x, ps,
+    st::NamedTuple) where {fields}
+  N = length(fields)
+  x_symbols = vcat([:x], [gensym() for _ in 1:N])
+  st_symbols = [gensym() for _ in 1:N]
+
+  #Set the context state
+  
+  calls = [:(($(x_symbols[i + 1]), $(st_symbols[i])) = Lux.apply(layers.$(fields[i]),
+    $(x_symbols[i]), ps.$(fields[i]), st.$(fields[i]))) for i in 1:N]
+  
+  
+  push!(calls, :(st = NamedTuple{$fields}((($(Tuple(st_symbols)...),)))))
+  #Add a debug checking
+  push!(calls, :(return $(x_symbols[N + 1]), st))
+  return Expr(:block, calls...)
+  end
+
+
+# Context_layer to make interface simple
+
+@concrete struct context <: Lux.AbstractLuxLayer
+  activation
+  in_dims::Int
+  out_dims::Int
+  init_weight
+  init_bias
+  use_bias <: StaticBool
+end
+
+function context(in_dims::Int, out_dims::Int, activation=identity; init_weight=glorot_uniform,
+        init_bias=zeros32, use_bias::BoolType=True())
+  return context(activation, in_dims, out_dims, init_weight, init_bias, use_bias)
+end
+
+
+function Lux.initialparameters(rng::AbstractRNG, d::context)
+    return (weight=d.init_weight(rng, d.out_dims, d.in_dims),
+        bias=d.init_bias(rng, d.out_dims, 1))
+end
+
+
+
+function Lux.parameterlength(d::context)
+    return d.out_dims * (d.in_dims + 1)
+end
+
+# good for efficiency not exactly sure why yet
+Lux.statelength(d::context) = 0
+
+
+# modified standard dense layer to implement the mask value pointed to by the pointer
+@inline function (d::context)(x::AbstractVecOrMat, ps, st::NamedTuple)
+    context = st.context
+    println("context", context)
+    println("ps", ps)
+    println("context_output", x .+ d.activation.((ps.weight) * context .+ ps.bias))
+    return x .+ d.activation.((ps.weight)*context .+ ps.bias), st
+end
+
+# fix any issues with the context lauyer mask, need to check theory here
+function set_mask(layer::context, mask)
+end
+
+
+
+#use states again lets go
+
+
+#=
+function Lux.initialstates(rng::AbstractRNG, l::context)
+  print("usining context initial states")
+  return (context=zeros32(rng, l.in_dims))
+end
+=#

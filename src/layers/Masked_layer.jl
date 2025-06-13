@@ -216,6 +216,7 @@ function set_mask(layer::MaskedLinear, mask)
   layer.init_mask[] = mask
 end
 
+
 (c::MADE)(x, ps, st::NamedTuple) = applyMADE(c.layers, x, ps, st, c.mask)
 
 #TODO Figure out why these generated funtions are used, probably for optimization reasons
@@ -247,7 +248,7 @@ MADE(; kwargs...) = MADE((; kwargs...))
 # TODO GIve a more detailed comment on this layer onsistent with the others
 # MADE container - containter of MaskedLinear Layers (implemented as a Guassian Made)
 
-struct conditional_MADE{T <: NamedTuple} <: Lux.AbstractLuxContainerLayer{(:layers,)}
+struct conditional_MADE{T <: NamedTuple} <: Lux.AbstractLuxWrapperLayer{(:layers)}
   layers::T
   mask::Base.RefValue{}
   order::AbstractArray{Int}
@@ -285,6 +286,8 @@ function conditional_MADE(layers...; gaussianMADE::Bool=true, random_order::Bool
   num_conditional = Int(input_size - (output_size / 2))
 
   #println(num_conditional)
+  println("num_conditional: ", num_conditional)
+  println("layers: ", layers)
 
   m_k = generate_m_k(layers, random_order, num_conditional=num_conditional)
 
@@ -360,8 +363,9 @@ end
   #n = div(size(y_pred)[1], 2)
   #half1 = @view y_pred[1:n,:]
   #half2 = @view y_pred[n+1:end,:]
-  #println(x)
-  #println(y_pred)
+  # add lavel text to print statements
+  #println("x", x)
+  #println("y_pred", y_pred)
   #println(half1[:,1], half2[:,1], y_pred[:,1])
   u = forward(x, y_pred)
   #println(u)
@@ -452,11 +456,32 @@ end
 #-------------------------------------------------------------------------------------------------------------
 # conditional MAF layer (chain of MADE with the conditional flag set to true)
 
+#Note need to figure out how to add dense here in the Lux.AbstractLuxContainerLayer
+#This will incorperate the parameters into ps
+#At that point then we need to mess with the sample and loss functions
+#Finally we should be gtg
+#Want tog et it done by tuesday since wednesday will be back to working primarily on Anands model
+#Alright, Lets Gooo!!!!!! (lets goo lol that sounded better in my head when I first started typing)
 
-struct conditional_MAF{T <: NamedTuple} <: Lux.AbstractLuxContainerLayer{(:layers,)}
+#=
+struct conditional_MAF{T <: NamedTuple, P} <: Lux.AbstractLuxContainerLayer{(:layers, :context_encoder)}
+  layers::T
+  conditional_num::Int
+  context_encoder::P # can I specify type to speed things up?
+end
+=#
+
+struct conditional_MAF{T <: NamedTuple} <: Lux.AbstractLuxWrapperLayer{(:layers)}
   layers::T
   conditional_num::Int
 end
+
+#=
+function conditional_MAF(layers...; conditional_num = 0, context_encoder = nothing)
+  names = ntuple(i -> Symbol("MADE_$i"), length(layers))
+  return conditional_MAF(NamedTuple{names}(layers), conditional_num, context_encoder)
+end
+=#
 
 function conditional_MAF(layers...; conditional_num = 0)
   names = ntuple(i -> Symbol("MADE_$i"), length(layers))
