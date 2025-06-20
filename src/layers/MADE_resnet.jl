@@ -104,14 +104,18 @@ end
 
 function MADE_relu_conditional(in_dim, hidden_dim, context_dim; gaussianMADE::Bool=true, random_order::Bool=false, order_permutation::Int=1, internal_layer_num::Int=1)
 
-    internal_layer = SkipConnection(Chain(context(context_dim, hidden_dim, relu), MaskedLinear(hidden_dim,hidden_dim, relu), MaskedLinear(hidden_dim,hidden_dim, relu)),+)
+    internal_layers = [SkipConnection(Chain(context(context_dim, hidden_dim, relu), MaskedLinear(hidden_dim,hidden_dim, relu), MaskedLinear(hidden_dim,hidden_dim, relu)),+) for _ in 1:internal_layer_num] 
     initial_layer = MaskedLinear(in_dim, hidden_dim)
     context_layer = context(context_dim, hidden_dim, relu)
     final_layer = MaskedLinear(hidden_dim, in_dim*2)
 
-    layers = NamedTuple{(:initial_layer, :context_layer, :internal_layer, :final_layer)}((initial_layer, context_layer, internal_layer, final_layer)) 
+    #create symbol names for internal layers
+    internal_layer_symbols = Tuple(Symbol("internal_layer_$(i)") for i in 1:internal_layer_num)
 
-    expanded_layers = layers.initial_layer, layers.internal_layer.layers[1], layers.internal_layer.layers[2], layers.final_layer
+    layers = NamedTuple{(:initial_layer, :context_layer, internal_layer_symbols..., :final_layer)}((initial_layer, context_layer, internal_layers..., final_layer)) 
+
+    # Double check the logic behind this (internal_layer[1] is a context layer so I dont think the mask should be set like this)
+    expanded_layers = layers.initial_layer, [layers[i+2].layers[j] for i in 1:internal_layer_num, j in 2:3]..., layers.final_layer
 
     m_k = generate_m_k(expanded_layers, random_order, order_permutation = order_permutation) # look uo exactly what scale random order means
     m_k[end-1] = m_k[2] # Check this doesnt mess with anything to bad needed to preserve masked properties
@@ -154,10 +158,13 @@ function context_state_finder(st::NamedTuple, context_val)
   for k in keys(st)
     if k == :context_layer
       st = merge(st,(context_layer = (context = context_val,),))
-    elseif k == :internal_layer
-      internal_st = st.internal_layer
+    elseif startswith(string(k), "internal_layer")
+      println("found internal layer", k)
+      internal_st = st[k]
+      println("internal_st", internal_st)
       internal_st = merge(internal_st, (layer_1 = (context = context_val,),)) # Assumes layer 1 is a context layer
-      st = merge(st, (internal_layer = internal_st,))
+
+      st = merge(st, NamedTuple{(k,)}((internal_st,)))
     end
   end
   return st
