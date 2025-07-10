@@ -8,14 +8,17 @@ end
 
 #divides along the rows in 2 for made_output
 # assumes each column of u is a different data point
-function inverse(u, made_output)
+function forward(u, made_output)
     n = div(size(made_output)[1], 2)
     half1 = @view made_output[1:n,:]
     half2 = @view made_output[n+1:end,:]
+    print("The inputs to the forward function",u, made_output)
     return u .* softplus.(half2) + half1
 end
 
-function forward(x, made_output)
+# add epsilon, check if I didnt mess up forward and inverse
+# I did, what is the justification
+function inverse(x, made_output)
     n = div(size(made_output)[1], 2)
     half1 = @view made_output[1:n,:]
     half2 = @view made_output[n+1:end,:]
@@ -27,6 +30,23 @@ function save_model(tstate, name)
     save_object("$name.jld2", tstate)
 end
 
+# Conditional Forward Function
+# forward function assuming the conditional base distribution
+# the means and standard deviations of the gaussian are given  as input
+# NOTE: currently Untested
+# half2 is logstd
+function conditional_forward(u, context)
+    n = div(size(context)[1], 2)
+    half1 = @view context[1:n,:]
+    half2 = @view context[n+1:end,:]
+    return (u .- half1).*exp.(-context[2,:])
+end
+
+# removes context and applies the forward mode of the function
+function conditional_forward_split(u, made_output, context)
+    u_x = u[1:end-context]
+    return forward(u_x, made_output)
+end
 
 #=
 using Plots
