@@ -274,6 +274,47 @@ end
 
 
 
+# create the wrapper for the MADE_relu_conditional layer
+# just applies the forward transform
+# Untested, lets test it lol
+@concrete struct MADE_relu_conditional_transform <: Lux.AbstractLuxWrapperLayer{:layers}
+    layers <: NamedTuple
+    context_dim::Int
+end
+
+# Define the forward mode behavior
+function (c::MADE_relu_conditional_transform)(x, ps, st::NamedTuple)
+    return applyMADE_relu_conditional_transform(c.layers, x, ps, st, c.context_dim), st
+end
+
+
+# Run the coordinate transform on the MADE_relu_conditional layer
+
+
+@generated function applyMADE_relu_conditional_transform(layers::NamedTuple{fields}, x, ps,
+  st::NamedTuple, context_dim) where {fields}
+  N = length(fields)
+  x_symbols = vcat([:x], [gensym() for _ in 1:N])
+  st_symbols = [gensym() for _ in 1:N]
+
+
+  calls = [:(($(x_symbols[i + 1]), $(st_symbols[i])) = Lux.apply(layers.$(fields[i]),
+    $(x_symbols[i]), ps.$(fields[i]), st.$(fields[i]))) for i in 1:N]
+
+
+  push!(calls, :(st = NamedTuple{$fields}((($(Tuple(st_symbols)...),)))))
+  #Add a debug checking
+  # need a way to discriminate the context here, can check
+  # this meta programming sucks, should have taken 5 minutes to write this
+  push!(calls, :(return forward($(x_symbols[1]), $(x_symbols[N + 1])), context_dim))
+  return Expr(:block, calls...)
+end
+
+
+
+
+
+
 #use states again lets go
 
 
