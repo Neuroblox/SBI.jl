@@ -279,7 +279,26 @@ end
 # Untested, lets test it lol
 @concrete struct MADE_relu_conditional_transform <: Lux.AbstractLuxWrapperLayer{:layers}
     layers <: NamedTuple
-    context_dim::Int
+end
+
+# Constructor for the MADE_relu_conditional_transform layer
+#input should be the MADE_relu_conditional layer and a context encoder layer
+function MADE_relu_conditional_transform(layers...;)
+  # check length of layers and make sure its length 2 or throw an expr_forward
+  if length(layers) != 2
+    throw(ArgumentError("MADE_relu_conditional_transform requires 2 layers"))
+  end
+  
+  #check that the first element of layer is the right type
+  if !(isa(layers[1], MADE_relu_conditional))
+    throw(ArgumentError("MADE_relu_conditional_transform requires first layer to be MADE_relu_conditional"))
+  end
+
+  # create named tuple for the layers
+  layers = NamedTuple{(:MADE_relu_conditional, :context_encoder)}((layers[1], layers[2]))
+
+
+  return MADE_relu_conditional_transform(layers)
 end
 
 # Define the forward mode behavior
@@ -309,18 +328,3 @@ end
   push!(calls, :(return forward($(x_symbols[1]), $(x_symbols[N + 1])), context_dim))
   return Expr(:block, calls...)
 end
-
-
-
-
-
-
-#use states again lets go
-
-
-#=
-function Lux.initialstates(rng::AbstractRNG, l::context)
-  print("usining context initial states")
-  return (context=zeros32(rng, l.in_dims))
-end
-=#
