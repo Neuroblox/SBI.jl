@@ -26,6 +26,13 @@ function inverse(x, made_output)
 end
 
 
+function inverse_exp(x, made_output)
+    n = div(size(made_output)[1], 2)
+    half1 = @view made_output[1:n,:]
+    half2 = @view made_output[n+1:end,:]
+    return (x.-half1)./exp.(half2)
+end
+
 function save_model(tstate, name)
     save_object("$name.jld2", tstate)
 end
