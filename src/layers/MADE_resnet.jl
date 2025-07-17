@@ -192,7 +192,7 @@ end
 
 
 function (c::MADE_relu_conditional)(x, ps, st::NamedTuple)
-  println("using custom dispatch")
+  println("using custom dispatch, MADE_relu_conditional")
   st, x = set_context(st, x)
   println("st", st)
   return applyMADE_relu_conditional(c.layers, x, ps, st)
@@ -279,11 +279,12 @@ end
 # Untested, lets test it lol
 @concrete struct MADE_relu_conditional_transform <: Lux.AbstractLuxWrapperLayer{:layers}
     layers <: NamedTuple
+    context_dims ::Int
 end
 
 # Constructor for the MADE_relu_conditional_transform layer
 #input should be the MADE_relu_conditional layer and a context encoder layer
-function MADE_relu_conditional_transform(layers...;)
+function MADE_relu_conditional_transform(layers...; context_dims=1)
   # check length of layers and make sure its length 2 or throw an expr_forward
   if length(layers) != 2
     throw(ArgumentError("MADE_relu_conditional_transform requires 2 layers"))
@@ -298,33 +299,48 @@ function MADE_relu_conditional_transform(layers...;)
   layers = NamedTuple{(:MADE_relu_conditional, :context_encoder)}((layers[1], layers[2]))
 
 
-  return MADE_relu_conditional_transform(layers)
+  return MADE_relu_conditional_transform(layers, context_dims)
 end
 
 # Define the forward mode behavior
 function (c::MADE_relu_conditional_transform)(x, ps, st::NamedTuple)
-    return applyMADE_relu_conditional_transform(c.layers, x, ps, st, c.context_dim), st
+    #=
+    context_dims = c.context_dims
+    context_val = x[end-context_dims+1:end]
+    st = merge(st,(MADE_relu_conditional_transform = (context = context_val,),))
+    =#
+    return applyMADE_relu_conditional_transform(c.layers, x, ps, st)
 end
 
 
 # Run the coordinate transform on the MADE_relu_conditional layer
 
 
-@generated function applyMADE_relu_conditional_transform(layers::NamedTuple{fields}, x, ps,
-  st::NamedTuple, context_dim) where {fields}
-  N = length(fields)
-  x_symbols = vcat([:x], [gensym() for _ in 1:N])
-  st_symbols = [gensym() for _ in 1:N]
+function applyMADE_relu_conditional_transform(layers::NamedTuple{fields}, x, ps,
+  st::NamedTuple) where {fields}
+  context_dims = st.context_dims
+  context = x[end-context_dims+1:end] # get the context from the input
+  x_no_context = x[1:end-context_dims] # remove the context from the input
+  encoder_output = Lux.apply(layers.context_encoder, context, ps.context_encoder, st.context_encoder)
+  # need to create add a coord_transform function that takes the encoder output as parameters
+  MADE_output = Lux.apply(layers.MADE_relu_conditional, x, ps.MADE_relu_conditional, st.MADE_relu_conditional)
+  # apply the coordinate transform
+  # need to know at what state is the coordinate transform applies
+  # lets define coordinate_transform function
+
+  reg_output = forward(x_no_context, MADE_output)#normal output placeholder
 
 
-  calls = [:(($(x_symbols[i + 1]), $(st_symbols[i])) = Lux.apply(layers.$(fields[i]),
-    $(x_symbols[i]), ps.$(fields[i]), st.$(fields[i]))) for i in 1:N]
+  return inverse_exp(reg_output, encoder_output), st
+end
 
-
-  push!(calls, :(st = NamedTuple{$fields}((($(Tuple(st_symbols)...),)))))
-  #Add a debug checking
-  # need a way to discriminate the context here, can check
-  # this meta programming sucks, should have taken 5 minutes to write this
-  push!(calls, :(return forward($(x_symbols[1]), $(x_symbols[N + 1])), context_dim))
-  return Expr(:block, calls...)
+function Lux.initialstates(rng::AbstractRNG, l::MADE_relu_conditional_transform{layers}) where {layers}
+  print("using MADE relu conditional transform initial states")
+  ctx = (context_dims = l.context_dims,)
+  other = invoke(Lux.initialstates, Tuple{AbstractRNG, Lux.AbstractLuxWrapperLayer}, rng, l)
+  #other = context_state_finder(other, ctx.context)
+  #standard = NamedTuple{layers}(Lux.initialstates.(rng, getfield.((l,), layers)))
+  println("hi", ctx)
+  println(other)
+  return merge(ctx, other)
 end
