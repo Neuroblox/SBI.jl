@@ -189,7 +189,15 @@ function set_context(st::NamedTuple, x::AbstractVecOrMat)
 end
 
 
-
+function debug_merge(st1, st2)
+  # Merge the two states and print the debug information
+  println("Debugging merge of states:")
+  println("State 1:", st1)
+  println("State 2:", st2)
+  merged_st = merge(st1, st2)
+  println("Merged state:", merged_st)
+  return merged_st
+end
 
 function (c::MADE_relu_conditional)(x, ps, st::NamedTuple)
   println("using custom dispatch, MADE_relu_conditional")
@@ -214,13 +222,13 @@ end
   x_symbols = vcat([:x], [gensym() for _ in 1:N])
   st_symbols = [gensym() for _ in 1:N]
 
-  #Set the context state
-  
   calls = [:(($(x_symbols[i + 1]), $(st_symbols[i])) = Lux.apply(layers.$(fields[i]),
     $(x_symbols[i]), ps.$(fields[i]), st.$(fields[i]))) for i in 1:N]
   
-  
+  start = [:($(:og_st) = st)]
+  calls = vcat(start, calls)
   push!(calls, :(st = NamedTuple{$fields}((($(Tuple(st_symbols)...),)))))
+  push!(calls, :(st = debug_merge(og_st, st))) # merge the debug state with the original state
   #Add a debug checking
   push!(calls, :(return $(x_symbols[N + 1]), st))
   return Expr(:block, calls...)
@@ -326,7 +334,7 @@ function applyMADE_relu_conditional_transform(layers::NamedTuple{fields}, x, ps,
   MADE_output, st2 = Lux.apply(layers.MADE_relu_conditional, x, ps.MADE_relu_conditional, st.MADE_relu_conditional)
 
   #create a named tuple with st1 and st2
-  st3 = NamedTuple{fields}((st1, st2))
+  st3 = NamedTuple{fields}((st2, st1))
 
   st = merge(st, st3)
   # apply the coordinate transform
