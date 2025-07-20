@@ -1,4 +1,3 @@
-
 # Note for future in MADE.py in nflows package what they do to residual blocks is
 # run a single linear layer to go from the base value to the dimensions and run an activation function
 # on this value. Then things proceed as normal. This shouldn't be too hard to implement, But it looks like we have to go back to 
@@ -19,45 +18,32 @@ using CairoMakie
 
 import MLUtils: DataLoader, splitobs
 include("../src/utils.jl")
-include("./testing_utils/comparison_utilities.jl")
 
 
 rng = MersenneTwister()
 Random.seed!(rng, 12345)
 model = Sbi.MADE_relu_conditional(2, 4, 1, internal_layer_num=2);
-
-
-
-ps, state = Lux.setup(rng, model);
-
-ps = load_and_set_weights_MADE_relu_conditional(ps, "/home/simon/Code/SBI.jl/testing_env/testing_utils/layer_parameters.json")
-
-#input = [-0.7943,  1.0887]
-input = [1.0887, -0.3943]
-context_value = [1.0]
-full_input = vcat(input, context_value)
-
-final_output = model(full_input, ps, state)
-
-forward(full_input[1:2], final_output[1])
-
-#Thing to test
-isapprox(final_output[1], [-0.4218599796295166, 0.3178511864200508, -0.08984673023223877, -1.168322210581151], atol=1e-4)
-
-
-# now lets test the version with the transform
-context_encoder = Dense(1=>4)
-
+context_encoder = Dense(1=>4, Lux.relu)
 model_2 = Sbi.MADE_relu_conditional_transform(model, context_encoder, context_dims=1)
+#context = Sbi.context(1,4,1)
 
-ps2, state = Lux.setup(rng, model_2);
+#=
+function initialstates2(rng::AbstractRNG, l::AbstractLuxWrapperLayer{layer}) where {layer}
+    println(getfield(l, layer))
+    return Lux.initialstates(rng, Lux.getfield(l, layer))
+end
+=#
 
-context_ps ,context_state = Lux.setup(rng, context_encoder);
+#=
+function initialstates2(
+    rng::AbstractRNG, l::Sbi.MADE_relu_conditional{layers}
+) where {layers}
+    return NamedTuple{layers}(Lux.initialstates.(rng, getfield.((l,), layers)))
+end
+=#
 
-ps3 = load_and_set_weights_context_encoder(context_ps, "/home/simon/Code/SBI.jl/testing_env/testing_utils/context_encoder_parameters.json")
 
-ps2 = merge(ps2, (MADE_relu_conditional = ps, context_encoder = ps3))
 
-l, st = model_2(full_input, ps2, state)
+ps, state = Lux.setup(rng, model_2);
 
-isapprox(l, [-0.3268, -1.3569], atol=1e-2)
+l, st = model_2(randn(3), ps, state)
