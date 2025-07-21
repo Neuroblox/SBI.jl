@@ -158,3 +158,41 @@ function lux_gaussian_maf_loss(model, ps, st, data)
     end
     return loss, st, ()
 end
+
+# New loss function to work with the improved interface
+function logp_conditional_maf_smooth(output, st)
+    sum_output = sum(i for i in [st.encoder_output])
+    sum_output2 = sum(i for i in [st.MADE_output])
+
+    n = size(output)[1]
+    half2_all = @view sum_output[n+1:end,:] # note do I add the 1e-3
+    half2_all2 = @view sum_output2[n+1:end,:] # note do I add the 1e-3
+    #println(sum(mean(half2_all, dims=2)))
+    # ------------------------------------------ THIS IS THE BUG ---------------------------------------
+    #println("y_pred", y_pred)
+
+    # Note the next line is wrong
+    # Need to look at how the context is stored
+    #u = conditional_forward(u, y_pred)
+    negloglike = 0.5.*(output.^2)
+    loglike = -negloglike
+    println(loglike)
+    #println("before det", loglike)
+    println("half2_all", half2_all)
+    #println("loglike", loglike)
+    #println("logscale", logscale)
+    loglike = loglike .- half2_all
+    println(loglike)
+    loglike = loglike .- 0.5*log(2*pi)
+    println(loglike)
+
+    #println("after det", half2_all)
+    loglike = sum(loglike)
+    #is this worth it? I'm not sure, 
+    #if (negloglike == Inf) 
+    #    DomainError(val) 
+    #end
+    logabsdet = sum(log.(softplus.(half2_all2)) .+ 1e-3)
+    println("half2all2", logabsdet)
+    return loglike + logabsdet
+end

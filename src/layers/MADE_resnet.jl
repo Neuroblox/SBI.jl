@@ -334,14 +334,22 @@ function applyMADE_relu_conditional_transform(layers::NamedTuple{fields}, x, ps,
   MADE_output, st2 = Lux.apply(layers.MADE_relu_conditional, x, ps.MADE_relu_conditional, st.MADE_relu_conditional)
 
   #create a named tuple with st1 and st2
-  st3 = NamedTuple{fields}((st2, st1))
+  st3 = NamedTuple{fields}((st2, st1,))
+  # Made_outout_state
+  st_MADE = (MADE_output = MADE_output, encoder_output = encoder_output,)
 
   st = merge(st, st3)
+  st = merge(st, st_MADE)
   # apply the coordinate transform
   # need to know at what state is the coordinate transform applies
   # lets define coordinate_transform function
 
   reg_output = forward(x_no_context, MADE_output)#normal output placeholder
+  println("x_no_context", x_no_context)
+  println("MADE_output", MADE_output)
+  println("encoder_output", encoder_output)
+  println("reg_output", reg_output)
+  println("inverse_exp", inverse_exp(reg_output, encoder_output))
 
 
   return inverse_exp(reg_output, encoder_output), st
