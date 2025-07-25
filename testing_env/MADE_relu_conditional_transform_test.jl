@@ -64,3 +64,15 @@ isapprox(l, [ 3.7176, -0.8894], atol=1e-1)
 
 logp = Sbi.logp_conditional_maf_smooth(l, st)
 isapprox(logp, -8.4472, atol=1e-2)
+
+
+#Now do for multiple inputs
+input = [1.0887 -0.3943; 0.5 -0.5; 0.1 0.2]'
+context_value = [1.0 2.0 -1.0]
+full_input = vcat(input, context_value)
+
+
+l, st = model_2(full_input, ps2, state)
+isapprox(l, [ 0.9633 -0.5172;
+                0.6723 -0.6783;
+                0.4746 -0.0752]', atol=1e-1)
