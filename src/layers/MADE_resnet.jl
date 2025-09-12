@@ -365,3 +365,30 @@ function Lux.initialstates(rng::AbstractRNG, l::MADE_relu_conditional_transform{
   println(other)
   return merge(ctx, other)
 end
+
+
+
+@concrete struct ActivationLayer <: Lux.AbstractLuxLayer
+  activation
+end
+
+function Base.show(io::IO, d::ActivationLayer)
+  print(io, "ActivationLayer($(d.activation)")
+  return print(io, ")")
+end
+
+function ActivationLayer(in_dims::Int, activation=identity)
+  return ActivationLayer(activation, in_dims)
+end
+
+# good for efficiency not exactly sure why yet
+Lux.statelength(d::ActivationLayer) = 0
+Lux.parameterlength(d::ActivationLayer) = 0
+
+
+# modified standard dense layer to implement the mask value pointed to by the pointer
+@inline function (d::ActivationLayer)(x::AbstractVecOrMat, ps, st::NamedTuple)
+  #print the size of the mask for debugging
+    return d.activation.(x), st
+end
+
