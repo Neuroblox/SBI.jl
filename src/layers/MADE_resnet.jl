@@ -327,8 +327,8 @@ end
 function applyMADE_relu_conditional_transform(layers::NamedTuple{fields}, x, ps,
   st::NamedTuple) where {fields}
   context_dims = st.context_dims
-  context = x[end-context_dims+1:end] # get the context from the input
-  x_no_context = x[1:end-context_dims] # remove the context from the input
+  context = x[end-context_dims+1:end, :] # get the context from the input
+  x_no_context = x[1:end-context_dims, :] # remove the context from the input
   encoder_output, st1 = Lux.apply(layers.context_encoder, context, ps.context_encoder, st.context_encoder)
   # need to create add a coord_transform function that takes the encoder output as parameters
   MADE_output, st2 = Lux.apply(layers.MADE_relu_conditional, x, ps.MADE_relu_conditional, st.MADE_relu_conditional)
