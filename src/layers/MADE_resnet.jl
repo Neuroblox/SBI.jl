@@ -180,8 +180,8 @@ st = (context_layer = NamedTuple(), other_layer = (other = 1.2,))
 #returns the modified state and input
 function set_context(st::NamedTuple, x::AbstractVecOrMat)
   context_dim = st.context
-  context = x[end-context_dim+1:end]
-  x = x[1:end-context_dim]
+  context = x[end-context_dim+1:end,:]
+  x = x[1:end-context_dim,:]
   st = context_state_finder(st, context)
   println("context", context)
   println("x", x)
