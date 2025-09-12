@@ -73,6 +73,19 @@ full_input = vcat(input, context_value)
 
 
 l, st = model_2(full_input, ps2, state)
-isapprox(l, [ 0.9633 -0.5172;
-                0.6723 -0.6783;
-                0.4746 -0.0752]', atol=1e-1)
+rearranged = [0.1639   0.1639   0.1639;
+              0.3955  -0.1560  -0.3617;
+              0.3877   0.3877   0.3877;
+             -0.6512  -0.6731  -0.2559]
+
+# Test equality
+isapprox(st.MADE_output, rearranged, atol=1e-3)
+
+logp = Sbi.logp_conditional_maf_smooth(l, st)
+
+
+isapprox(logp, -25.646, atol=1e-2)
+
+model3 = Sbi.ActivationLayer(relu)
+ps3, state3 = Lux.setup(rng, model3);
+l2, st2 = model3([1.0, 2.3, -5.1], ps3, state3)
