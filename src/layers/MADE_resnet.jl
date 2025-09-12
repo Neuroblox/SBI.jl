@@ -104,7 +104,7 @@ end
 
 function MADE_relu_conditional(in_dim, hidden_dim, context_dim; gaussianMADE::Bool=true, random_order::Bool=false, order_permutation::Int=1, internal_layer_num::Int=1)
 
-    internal_layers = [SkipConnection(Chain(MaskedLinear(hidden_dim,hidden_dim), context(context_dim, hidden_dim, relu),  MaskedLinear(hidden_dim,hidden_dim, relu)),+) for _ in 1:internal_layer_num-1] 
+    internal_layers = [SkipConnection(Chain(ActivationLayer(relu), MaskedLinear(hidden_dim,hidden_dim), context(context_dim, hidden_dim), ActivationLayer(relu), MaskedLinear(hidden_dim,hidden_dim)),+) for _ in 1:internal_layer_num] 
     initial_layer = MaskedLinear(in_dim, hidden_dim)
     context_layer = context(context_dim, hidden_dim, relu)
     final_layer = MaskedLinear(hidden_dim, in_dim*2)
@@ -162,7 +162,7 @@ function context_state_finder(st::NamedTuple, context_val)
       println("found internal layer", k)
       internal_st = st[k]
       println("internal_st", internal_st)
-      internal_st = merge(internal_st, (layer_2 = (context = context_val,),)) # Assumes layer 2 is a context layer
+      internal_st = merge(internal_st, (layer_3 = (context = context_val,),)) # Assumes layer 3 is a context layer
 
       st = merge(st, NamedTuple{(k,)}((internal_st,)))
     end
