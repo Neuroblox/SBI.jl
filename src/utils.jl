@@ -14,11 +14,17 @@ function forward(u, made_output)
     n = div(size(made_output)[1], 2)
     half1 = @view made_output[1:n,:]
     half2 = @view made_output[n+1:end,:]
-    @debug "Forward function inputs" u=u made_output=made_output n=n half1=half1 half2=half2
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+        println("Forward function inputs: u=$u, made_output=$made_output, n=$n, half1=$half1, half2=$half2")
+    end
     logstd_sum = sum(log.(softplus.(half2).+ 1e-3))
-    @debug "Forward function logstd calculation" logstd=logstd_sum
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+        println("Forward function logstd calculation: logstd=$logstd_sum")
+    end
     result = u .* softplus.(half2) + half1
-    @debug "Forward function result" result=result
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+        println("Forward function result: result=$result")
+    end
     return result
 end
 
@@ -28,21 +34,31 @@ function inverse(x, made_output)
     n = div(size(made_output)[1], 2)
     half1 = @view made_output[1:n,:]
     half2 = @view made_output[n+1:end,:]
-    @debug "Inverse function" x=x made_output=made_output n=n half1=half1 half2=half2
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+        println("Inverse function: x=$x, made_output=$made_output, n=$n, half1=$half1, half2=$half2")
+    end
     result = (x.-half1)./softplus.(half2)
-    @debug "Inverse function result" result=result
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+        println("Inverse function result: result=$result")
+    end
     return result
 end
 
 
 function inverse_exp(x, made_output)
     n = div(size(made_output)[1], 2)
-    @debug "Inverse exponential function" x=x made_output=made_output n=n
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+        println("Inverse exponential function: x=$x, made_output=$made_output, n=$n")
+    end
     half1 = @view made_output[1:n,:]
     half2 = @view made_output[n+1:end,:]
-    @debug "Inverse exponential components" half1=half1 half2=half2
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+        println("Inverse exponential components: half1=$half1, half2=$half2")
+    end
     result = (x.-half1)./exp.(half2)
-    @debug "Inverse exponential result" result=result
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+        println("Inverse exponential result: result=$result")
+    end
     return result
 end
 
@@ -59,18 +75,26 @@ function conditional_forward(u, context)
     n = div(size(context)[1], 2)
     half1 = @view context[1:n,:]
     half2 = @view context[n+1:end,:]
-    @debug "Conditional forward function" u=u context=context n=n half1=half1 half2=half2
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+        println("Conditional forward function: u=$u, context=$context, n=$n, half1=$half1, half2=$half2")
+    end
     result = (u .- half1).*exp.(-context[2,:])
-    @debug "Conditional forward result" result=result
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+        println("Conditional forward result: result=$result")
+    end
     return result
 end
 
 # removes context and applies the forward mode of the function
 function conditional_forward_split(u, made_output, context)
     u_x = u[1:end-context]
-    @debug "Conditional forward split" u=u made_output=made_output context=context u_x=u_x
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+        println("Conditional forward split: u=$u, made_output=$made_output, context=$context, u_x=$u_x")
+    end
     result = forward(u_x, made_output)
-    @debug "Conditional forward split result" result=result
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+        println("Conditional forward split result: result=$result")
+    end
     return result
 end
 

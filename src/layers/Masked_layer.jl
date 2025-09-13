@@ -64,7 +64,9 @@ function Base.show(io::IO, d::MaskedLinear)
 end
 
 function MaskedLinear(mapping::Pair{<:Int, <:Int}; kwargs...)
-  @debug "Masked_linear constructor called" kwargs=kwargs
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Masked_linear constructor called: kwargs=$kwargs")
+  end
   return MaskedLinear(first(mapping), last(mapping); kwargs...)
 end
 
@@ -93,9 +95,13 @@ Lux.statelength(d::MaskedLinear) = 0
 # modified standard dense layer to implement the mask value pointed to by the pointer
 @inline function (d::MaskedLinear)(x::AbstractVecOrMat, ps, st::NamedTuple)
   #log the layer parameters and computations for debugging
-  @debug "MaskedLinear forward pass" mask_size=size(d.init_mask[]) weight_size=size(ps.weight) input_size=size(x) input=x weight=ps.weight bias=ps.bias mask=d.init_mask[]
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("MaskedLinear forward pass: mask_size=$(size(d.init_mask[])), weight_size=$(size(ps.weight)), input_size=$(size(x)), input=$x, weight=$(ps.weight), bias=$(ps.bias), mask=$(d.init_mask[])")
+  end
   output = d.activation.(((d.init_mask[]).*ps.weight)*x .+ ps.bias)
-  @debug "MaskedLinear output" output=output
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("MaskedLinear output: output=$output")
+  end
   return output, st
 end
 
@@ -116,7 +122,9 @@ end
 function sample(T::MADE, ps, st; samples = randn(T.layers[1].in_dims), use_softplus::Bool=false)
   input = T.layers[1].in_dims
   order = sortperm(T.order) # gets the index for the m_k values in increasing order
-  @debug "MADE sampling" initial_samples=samples
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("MADE sampling: initial_samples=$samples")
+  end
   for i in order
     if use_softplus
       mean = T(samples, ps, st)[1][i]
@@ -127,7 +135,9 @@ function sample(T::MADE, ps, st; samples = randn(T.layers[1].in_dims), use_softp
     end
     samples[i] = std*samples[i] + mean
   end
-  @debug "MADE sampling complete" final_samples=samples
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("MADE sampling complete: final_samples=$samples")
+  end
   return samples
 end
 
@@ -135,10 +145,14 @@ end
 #Generates a seet of integers for a layer consistent with the autoregressive property
 #used to calculate the mask
 function generate_m_k(layers, random_order::Bool; num_conditional=0, order_permutation = 1)
-  @debug "Generating m_k" layers=layers num_conditional=num_conditional order_permutation=order_permutation
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Generating m_k: layers=$layers, num_conditional=$num_conditional, order_permutation=$order_permutation")
+  end
 
   dims = [(i.in_dims, i.out_dims) for i in layers]
-  @debug "Layer dimensions" dims=dims
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Layer dimensions: dims=$dims")
+  end
 
   D = dims[1][1]
   D = D - num_conditional
@@ -154,7 +168,9 @@ function generate_m_k(layers, random_order::Bool; num_conditional=0, order_permu
     end
   end
 
-  @debug "Initial integer assignment" D=D integer_assign=integer_assign
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Initial integer assignment: D=$D, integer_assign=$integer_assign")
+  end
 
   for i in dims[1:end-1]
     push!(integer_assign, rand(1:D-1, i[2])) #TODO double check the integer assign is working
@@ -163,7 +179,9 @@ function generate_m_k(layers, random_order::Bool; num_conditional=0, order_permu
 
   integer_assign[1] = vcat(integer_assign[1], ones(Int, num_conditional))
 
-  @debug "Final integer assignment" integer_assign=integer_assign
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Final integer assignment: integer_assign=$integer_assign")
+  end
   return(integer_assign)
 end
 
@@ -171,7 +189,9 @@ end
 #Calculate masks for each layer and pushes them to an array in order to be sent to the layer
 #gaussianMADE only one implemented 
 function generate_masks(m_k, gaussianMADE::Bool)
-  @debug "Generating masks" m_k=m_k gaussianMADE=gaussianMADE
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Generating masks: m_k=$m_k, gaussianMADE=$gaussianMADE")
+  end
   Masks = []
   for i in eachindex(m_k[1:end-2]) 
     pair = collect(Iterators.product(m_k[i], m_k[i+1]))
@@ -190,7 +210,9 @@ function generate_masks(m_k, gaussianMADE::Bool)
 
   push!(Masks, M')
 
-  @debug "Generated masks" Masks=Masks
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Generated masks: Masks=$Masks")
+  end
   return(Masks)
 end
 
@@ -262,19 +284,29 @@ function sample(T::conditional_MADE, ps, st; samples = randn(T.layers[1].in_dims
   input = T.layers[1].in_dims
   output = T.layers[end].out_dims
   non_conditional_input = div(output,2)
-  @debug "Conditional MADE sampling" input=input output=output non_conditional_input=non_conditional_input
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Conditional MADE sampling: input=$input, output=$output, non_conditional_input=$non_conditional_input")
+  end
   input_m_k = copy(T.order[1:non_conditional_input])
   order = sortperm(input_m_k) # gets the index for the m_k values in increasing order
-  @debug "Sampling order" order=order T_order=T.order
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Sampling order: order=$order, T_order=$(T.order)")
+  end
   order = order[1:non_conditional_input,:]
-  @debug "Initial samples" samples=samples
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Initial samples: samples=$samples")
+  end
   for i in order
     mean = T(samples, ps, st)[1][i]
-    @debug "Sampling step" i=i non_conditional_input=non_conditional_input
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+      println("Sampling step: i=$i, non_conditional_input=$non_conditional_input")
+    end
     std = exp(T(samples, ps, st)[1][i+non_conditional_input ])
     samples[i] = std*samples[i] + mean
   end
-  @debug "Final samples" samples=samples
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Final samples: samples=$samples")
+  end
   return samples
 end
 
@@ -289,7 +321,9 @@ function conditional_MADE(layers...; gaussianMADE::Bool=true, random_order::Bool
 
   num_conditional = Int(input_size - (output_size / 2))
 
-  @debug "Conditional MADE constructor" num_conditional=num_conditional layers=layers
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Conditional MADE constructor: num_conditional=$num_conditional, layers=$layers")
+  end
 
   m_k = generate_m_k(layers, random_order, num_conditional=num_conditional)
 
@@ -349,9 +383,13 @@ end
     n = div(size(y_pred)[1], 2)
     half1 = @view y_pred[1:n,:]
     half2 = @view y_pred[n+1:end,:]
-    @debug "Coordinate transform" x_sample=x[:,1] half1_sample=half1[:,1] half2_sample=half2[:,1] y_pred_sample=y_pred[:,1]
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+        println("Coordinate transform: x_sample=$(x[:,1]), half1_sample=$(half1[:,1]), half2_sample=$(half2[:,1]), y_pred_sample=$(y_pred[:,1])")
+    end
     u = (x .- half1).*exp.(-half2)
-    @debug "Coordinate transform result" u_sample=u[:,1]
+    if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+        println("Coordinate transform result: u_sample=$(u[:,1])")
+    end
   return u
 end
 
@@ -360,9 +398,13 @@ end
 #used in the flow part of Masked autoregressive flow
 # Note smooth version should give better stability in training
 @inline function coord_transform_smooth(x, y_pred)
-  @debug "Smooth coordinate transform" x=x y_pred=y_pred
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Smooth coordinate transform: x=$x, y_pred=$y_pred")
+  end
   u = forward(x, y_pred)
-  @debug "Smooth coordinate transform result" u=u
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Smooth coordinate transform result: u=$u")
+  end
 return u
 end
 
@@ -511,7 +553,9 @@ return Expr(:block, calls1...)
 end
 
 function expr_forward(layer::MADE, input, ps, st, conditionals)
-  @debug "MADE layer forward pass triggered"
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("MADE layer forward pass triggered")
+  end
   output, output_st  = Lux.apply(layer, input, ps,st)
   output_pre = copy(output)
   output = coord_transform(input, output)
@@ -521,17 +565,27 @@ end
 
 function expr_forward(layer::conditional_MADE, input, ps, st, conditionals; final_layer=false)
   output_size = layer.layers[end].out_dims
-  @debug "Conditional MADE forward pass" output_size=output_size
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Conditional MADE forward pass: output_size=$output_size")
+  end
   num_inputs = Int(output_size / 2)
   input = input[1:num_inputs,:]
-  @debug "Processing conditional MADE input" input_size=size(input) conditionals_size=size(conditionals)
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Processing conditional MADE input: input_size=$(size(input)), conditionals_size=$(size(conditionals))")
+  end
   input_full = vcat(input, conditionals)
-  @debug "Full input prepared" input_full_size=size(input_full)
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Full input prepared: input_full_size=$(size(input_full))")
+  end
   output, output_st  = Lux.apply(layer, input_full, ps, st)
-  @debug "Layer applied successfully"
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Layer applied successfully")
+  end
   output_pre = copy(output)
   output = coord_transform(input, output)
-  @debug "Coordinate transform applied"
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Coordinate transform applied")
+  end
   if final_layer == true
     return(output_pre, output_st, output_pre)
   else
@@ -544,11 +598,15 @@ end
 function sample(T::conditional_MAF, ps, st; conditional = randn(T.conditional_num))
   _sample = randn((T.layers[1].layers[1].in_dims - T.conditional_num))
   _sample = vcat(_sample, conditional)
-  @debug "Conditional MAF initial sample" sample=_sample
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Conditional MAF initial sample: sample=$_sample")
+  end
   for i in reverse(eachindex(T.layers))
     _sample = sample(T.layers[i], ps[i], st[i], samples = _sample)
   end
-  @debug "Conditional MAF final sample" sample=_sample
+  if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
+    println("Conditional MAF final sample: sample=$_sample")
+  end
   return _sample
 end
 
