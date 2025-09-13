@@ -71,23 +71,23 @@ function load_and_set_weights_MADE_relu_conditional(ps, json_file_path::String)
     @set! ps.context_layer.weight = context_layer_weights_matrix
     @set! ps.context_layer.bias = context_layer_bias_matrix
 
-    @set! ps.internal_layer_1.layer_1.weight = block_0_context_layer_weights_matrix
-    @set! ps.internal_layer_1.layer_1.bias = block_0_context_layer_bias_matrix
+    @set! ps.internal_layer_1.layer_3.weight = block_0_context_layer_weights_matrix
+    @set! ps.internal_layer_1.layer_3.bias = block_0_context_layer_bias_matrix
 
     @set! ps.internal_layer_1.layer_2.weight = linear_layer_0_block_0_weights_matrix
     @set! ps.internal_layer_1.layer_2.bias = linear_layer_0_block_0_bias_matrix
 
-    @set! ps.internal_layer_1.layer_3.weight = linear_layer_1_block_0_weights_matrix
-    @set! ps.internal_layer_1.layer_3.bias = linear_layer_1_block_0_bias_matrix
+    @set! ps.internal_layer_1.layer_5.weight = linear_layer_1_block_0_weights_matrix
+    @set! ps.internal_layer_1.layer_5.bias = linear_layer_1_block_0_bias_matrix
 
-    @set! ps.internal_layer_2.layer_1.weight = block_1_context_layer_weights_matrix
-    @set! ps.internal_layer_2.layer_1.bias = block_1_context_layer_bias_matrix
+    @set! ps.internal_layer_2.layer_3.weight = block_1_context_layer_weights_matrix
+    @set! ps.internal_layer_2.layer_3.bias = block_1_context_layer_bias_matrix
 
     @set! ps.internal_layer_2.layer_2.weight = linear_layer_0_block_1_weights_matrix
     @set! ps.internal_layer_2.layer_2.bias = linear_layer_0_block_1_bias_matrix
 
-    @set! ps.internal_layer_2.layer_3.weight = linear_layer_1_block_1_weights_matrix
-    @set! ps.internal_layer_2.layer_3.bias = linear_layer_1_block_1_bias_matrix
+    @set! ps.internal_layer_2.layer_5.weight = linear_layer_1_block_1_weights_matrix
+    @set! ps.internal_layer_2.layer_5.bias = linear_layer_1_block_1_bias_matrix
 
     @set! ps.final_layer.weight = final_layer_weights_matrix
     @set! ps.final_layer.bias = final_layer_bias_matrix
