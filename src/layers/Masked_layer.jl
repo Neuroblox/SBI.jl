@@ -3,6 +3,7 @@ using Lux
 using ConcreteStructs
 using Static
 using SIMDTypes
+using Logging
 
 const BoolType = Union{StaticBool, Bool, Val{true}, Val{false}}
 
@@ -63,8 +64,7 @@ function Base.show(io::IO, d::MaskedLinear)
 end
 
 function MaskedLinear(mapping::Pair{<:Int, <:Int}; kwargs...)
-  print("Masked_linear construcot called")
-  println(kwargs...)
+  @debug "Masked_linear constructor called" kwargs=kwargs
   return MaskedLinear(first(mapping), last(mapping); kwargs...)
 end
 
@@ -92,7 +92,11 @@ Lux.statelength(d::MaskedLinear) = 0
 
 # modified standard dense layer to implement the mask value pointed to by the pointer
 @inline function (d::MaskedLinear)(x::AbstractVecOrMat, ps, st::NamedTuple)
-    return d.activation.(((d.init_mask[]).*ps.weight)*x .+ ps.bias), st
+  #log the layer parameters and computations for debugging
+  @debug "MaskedLinear forward pass" mask_size=size(d.init_mask[]) weight_size=size(ps.weight) input_size=size(x) input=x weight=ps.weight bias=ps.bias mask=d.init_mask[]
+  output = d.activation.(((d.init_mask[]).*ps.weight)*x .+ ps.bias)
+  @debug "MaskedLinear output" output=output
+  return output, st
 end
 
 
@@ -112,7 +116,7 @@ end
 function sample(T::MADE, ps, st; samples = randn(T.layers[1].in_dims), use_softplus::Bool=false)
   input = T.layers[1].in_dims
   order = sortperm(T.order) # gets the index for the m_k values in increasing order
-  #println(samples)
+  @debug "MADE sampling" initial_samples=samples
   for i in order
     if use_softplus
       mean = T(samples, ps, st)[1][i]
@@ -123,6 +127,7 @@ function sample(T::MADE, ps, st; samples = randn(T.layers[1].in_dims), use_softp
     end
     samples[i] = std*samples[i] + mean
   end
+  @debug "MADE sampling complete" final_samples=samples
   return samples
 end
 
@@ -130,15 +135,10 @@ end
 #Generates a seet of integers for a layer consistent with the autoregressive property
 #used to calculate the mask
 function generate_m_k(layers, random_order::Bool; num_conditional=0, order_permutation = 1)
-  for i in layers
-    #println("hi")
-    #println(i)
-    #println(layers)
-    #println("bye")
-  end
+  @debug "Generating m_k" layers=layers num_conditional=num_conditional order_permutation=order_permutation
 
   dims = [(i.in_dims, i.out_dims) for i in layers]
-  #println(dims)
+  @debug "Layer dimensions" dims=dims
 
   D = dims[1][1]
   D = D - num_conditional
@@ -154,7 +154,7 @@ function generate_m_k(layers, random_order::Bool; num_conditional=0, order_permu
     end
   end
 
-  #println(D)
+  @debug "Initial integer assignment" D=D integer_assign=integer_assign
 
   for i in dims[1:end-1]
     push!(integer_assign, rand(1:D-1, i[2])) #TODO double check the integer assign is working
@@ -163,6 +163,7 @@ function generate_m_k(layers, random_order::Bool; num_conditional=0, order_permu
 
   integer_assign[1] = vcat(integer_assign[1], ones(Int, num_conditional))
 
+  @debug "Final integer assignment" integer_assign=integer_assign
   return(integer_assign)
 end
 
@@ -170,6 +171,7 @@ end
 #Calculate masks for each layer and pushes them to an array in order to be sent to the layer
 #gaussianMADE only one implemented 
 function generate_masks(m_k, gaussianMADE::Bool)
+  @debug "Generating masks" m_k=m_k gaussianMADE=gaussianMADE
   Masks = []
   for i in eachindex(m_k[1:end-2]) 
     pair = collect(Iterators.product(m_k[i], m_k[i+1]))
@@ -188,6 +190,7 @@ function generate_masks(m_k, gaussianMADE::Bool)
 
   push!(Masks, M')
 
+  @debug "Generated masks" Masks=Masks
   return(Masks)
 end
 
@@ -259,18 +262,19 @@ function sample(T::conditional_MADE, ps, st; samples = randn(T.layers[1].in_dims
   input = T.layers[1].in_dims
   output = T.layers[end].out_dims
   non_conditional_input = div(output,2)
-  #println(T.order[1:non_conditional_input])
+  @debug "Conditional MADE sampling" input=input output=output non_conditional_input=non_conditional_input
   input_m_k = copy(T.order[1:non_conditional_input])
   order = sortperm(input_m_k) # gets the index for the m_k values in increasing order
-  #println("t.order is ", T.order, order)
+  @debug "Sampling order" order=order T_order=T.order
   order = order[1:non_conditional_input,:]
-  #println(samples)
+  @debug "Initial samples" samples=samples
   for i in order
     mean = T(samples, ps, st)[1][i]
-    #println("quick debug stuff",i, non_conditional_input)
+    @debug "Sampling step" i=i non_conditional_input=non_conditional_input
     std = exp(T(samples, ps, st)[1][i+non_conditional_input ])
     samples[i] = std*samples[i] + mean
   end
+  @debug "Final samples" samples=samples
   return samples
 end
 
@@ -285,9 +289,7 @@ function conditional_MADE(layers...; gaussianMADE::Bool=true, random_order::Bool
 
   num_conditional = Int(input_size - (output_size / 2))
 
-  #println(num_conditional)
-  println("num_conditional: ", num_conditional)
-  println("layers: ", layers)
+  @debug "Conditional MADE constructor" num_conditional=num_conditional layers=layers
 
   m_k = generate_m_k(layers, random_order, num_conditional=num_conditional)
 
@@ -318,7 +320,6 @@ calls = [:(($(x_symbols[i + 1]), $(st_symbols[i])) = Lux.apply(layers.$(fields[i
 
 push!(calls, :(st = NamedTuple{$fields}((($(Tuple(st_symbols)...),)))))
 push!(calls, :(return $(x_symbols[N + 1]), st))
-#return Expr(:block, :(println(size($(x_symbols[1])))), :(println("This is right after")), calls...)
 return Expr(:block, calls...)
 end
 
@@ -348,10 +349,9 @@ end
     n = div(size(y_pred)[1], 2)
     half1 = @view y_pred[1:n,:]
     half2 = @view y_pred[n+1:end,:]
-    #println(x[:,1])
-    #println(half1[:,1], half2[:,1], y_pred[:,1])
+    @debug "Coordinate transform" x_sample=x[:,1] half1_sample=half1[:,1] half2_sample=half2[:,1] y_pred_sample=y_pred[:,1]
     u = (x .- half1).*exp.(-half2)
-    #println(u[:,1])
+    @debug "Coordinate transform result" u_sample=u[:,1]
   return u
 end
 
@@ -360,16 +360,9 @@ end
 #used in the flow part of Masked autoregressive flow
 # Note smooth version should give better stability in training
 @inline function coord_transform_smooth(x, y_pred)
-  #n = div(size(y_pred)[1], 2)
-  #half1 = @view y_pred[1:n,:]
-  #half2 = @view y_pred[n+1:end,:]
-  # add lavel text to print statements
-  #println("x", x)
-  #println("y_pred", y_pred)
-  #println(half1[:,1], half2[:,1], y_pred[:,1])
+  @debug "Smooth coordinate transform" x=x y_pred=y_pred
   u = forward(x, y_pred)
-  #println(u)
-  #println(u[:,1])
+  @debug "Smooth coordinate transform result" u=u
 return u
 end
 
@@ -447,8 +440,7 @@ function sample(T::MAF, ps, st; specific_sample = randn(T.layers[1].layers[1].in
   _sample = specific_sample
   for i in reverse(eachindex(T.layers))
     _sample = sample(T.layers[i], ps[i], st[i], samples = _sample, use_softplus = T.softplus)
-    debug && println("Layer $i: ", _sample)
-
+    debug && @debug "MAF sampling layer" layer=i sample=_sample
   end
   return _sample
 end
@@ -519,7 +511,7 @@ return Expr(:block, calls1...)
 end
 
 function expr_forward(layer::MADE, input, ps, st, conditionals)
-  #println("A MADE LAYER FORWARD PASS WAS TRIGGERED")
+  @debug "MADE layer forward pass triggered"
   output, output_st  = Lux.apply(layer, input, ps,st)
   output_pre = copy(output)
   output = coord_transform(input, output)
@@ -528,22 +520,18 @@ end
 
 
 function expr_forward(layer::conditional_MADE, input, ps, st, conditionals; final_layer=false)
-  #println("hi")
-  #println("bye")
   output_size = layer.layers[end].out_dims
-  #println(output_size)
+  @debug "Conditional MADE forward pass" output_size=output_size
   num_inputs = Int(output_size / 2)
   input = input[1:num_inputs,:]
-  #println("hi")
-  #println(size(input), size(conditionals))
+  @debug "Processing conditional MADE input" input_size=size(input) conditionals_size=size(conditionals)
   input_full = vcat(input, conditionals)
-  #println("this is right before checking input full amount")
-  #println(size(input_full))
+  @debug "Full input prepared" input_full_size=size(input_full)
   output, output_st  = Lux.apply(layer, input_full, ps, st)
-  #println("layer applied")
+  @debug "Layer applied successfully"
   output_pre = copy(output)
   output = coord_transform(input, output)
-  #println("coord transform applied")
+  @debug "Coordinate transform applied"
   if final_layer == true
     return(output_pre, output_st, output_pre)
   else
@@ -556,10 +544,11 @@ end
 function sample(T::conditional_MAF, ps, st; conditional = randn(T.conditional_num))
   _sample = randn((T.layers[1].layers[1].in_dims - T.conditional_num))
   _sample = vcat(_sample, conditional)
-  #println(_sample)
+  @debug "Conditional MAF initial sample" sample=_sample
   for i in reverse(eachindex(T.layers))
     _sample = sample(T.layers[i], ps[i], st[i], samples = _sample)
   end
+  @debug "Conditional MAF final sample" sample=_sample
   return _sample
 end
 

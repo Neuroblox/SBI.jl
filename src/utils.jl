@@ -1,3 +1,5 @@
+using Logging
+
 function softplus(x::Number; β::Number = 1.0, threshold::Number = 20, ϵ::Number = 1e-3)
     if x*β > threshold
         return β * x + ϵ
@@ -12,8 +14,12 @@ function forward(u, made_output)
     n = div(size(made_output)[1], 2)
     half1 = @view made_output[1:n,:]
     half2 = @view made_output[n+1:end,:]
-    print("The inputs to the forward function",u, made_output)
-    return u .* softplus.(half2) + half1
+    @debug "Forward function inputs" u=u made_output=made_output n=n half1=half1 half2=half2
+    logstd_sum = sum(log.(softplus.(half2).+ 1e-3))
+    @debug "Forward function logstd calculation" logstd=logstd_sum
+    result = u .* softplus.(half2) + half1
+    @debug "Forward function result" result=result
+    return result
 end
 
 # add epsilon, check if I didnt mess up forward and inverse
@@ -22,15 +28,22 @@ function inverse(x, made_output)
     n = div(size(made_output)[1], 2)
     half1 = @view made_output[1:n,:]
     half2 = @view made_output[n+1:end,:]
-    return (x.-half1)./softplus.(half2)
+    @debug "Inverse function" x=x made_output=made_output n=n half1=half1 half2=half2
+    result = (x.-half1)./softplus.(half2)
+    @debug "Inverse function result" result=result
+    return result
 end
 
 
 function inverse_exp(x, made_output)
     n = div(size(made_output)[1], 2)
+    @debug "Inverse exponential function" x=x made_output=made_output n=n
     half1 = @view made_output[1:n,:]
     half2 = @view made_output[n+1:end,:]
-    return (x.-half1)./exp.(half2)
+    @debug "Inverse exponential components" half1=half1 half2=half2
+    result = (x.-half1)./exp.(half2)
+    @debug "Inverse exponential result" result=result
+    return result
 end
 
 function save_model(tstate, name)
@@ -46,13 +59,19 @@ function conditional_forward(u, context)
     n = div(size(context)[1], 2)
     half1 = @view context[1:n,:]
     half2 = @view context[n+1:end,:]
-    return (u .- half1).*exp.(-context[2,:])
+    @debug "Conditional forward function" u=u context=context n=n half1=half1 half2=half2
+    result = (u .- half1).*exp.(-context[2,:])
+    @debug "Conditional forward result" result=result
+    return result
 end
 
 # removes context and applies the forward mode of the function
 function conditional_forward_split(u, made_output, context)
     u_x = u[1:end-context]
-    return forward(u_x, made_output)
+    @debug "Conditional forward split" u=u made_output=made_output context=context u_x=u_x
+    result = forward(u_x, made_output)
+    @debug "Conditional forward split result" result=result
+    return result
 end
 
 #=

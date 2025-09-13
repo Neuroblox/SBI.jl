@@ -9,6 +9,7 @@ using Lux, Optimisers, Random, Zygote
 using Statistics
 using Static
 using SIMDTypes
+using Logging
 
 # Write your package code here.
 

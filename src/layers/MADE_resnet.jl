@@ -3,6 +3,7 @@ using Lux
 using ConcreteStructs
 using Static
 using SIMDTypes
+using Logging
 
 const BoolType = Union{StaticBool, Bool, Val{true}, Val{false}}
 
@@ -76,7 +77,7 @@ end
 function sample(T::MADE_relu, ps, st; samples = randn(T.layers[1].in_dims), use_softplus::Bool=false, debug = false)
   input = T.layers[1].in_dims
   order = sortperm(T.order) # gets the index for the m_k values in increasing order
-  #println(samples)
+  #@debug "samples" samples
   for i in order
     if use_softplus
       mean = T(samples, ps, st)[1][i]
@@ -87,8 +88,8 @@ function sample(T::MADE_relu, ps, st; samples = randn(T.layers[1].in_dims), use_
     end
     #samples[i] = std*samples[i] + mean
     samples[i] = (samples[i]-mean)./std
-    debug && println("Layer $i: mean = ", mean, ", std = ", std)
-    debug && println(samples)
+    debug && @debug "Layer $i" mean=mean std=std
+    debug && @debug "samples" samples
   end
   return samples
 end
@@ -114,6 +115,10 @@ function MADE_relu_conditional(in_dim, hidden_dim, context_dim; gaussianMADE::Bo
 
     layers = NamedTuple{(:initial_layer, :context_layer, internal_layer_symbols..., :final_layer)}((initial_layer, context_layer, internal_layers..., final_layer)) 
 
+    @debug "layers" layers
+    @debug "layers[3]" layers[3]
+    @debug "layers[4]" layers[4]
+
     # Double check the logic behind this (internal_layer[1] is a context layer so I dont think the mask should be set like this)
     expanded_layers = layers.initial_layer, [layers[i+2].layers[j] for i in 1:internal_layer_num, j in 2:3]..., layers.final_layer
 
@@ -136,14 +141,13 @@ end
 
 
 function Lux.initialstates(rng::AbstractRNG, l::MADE_relu_conditional{layers}) where {layers}
-  print("usining MADE relu initial states")
+  @debug "using MADE relu initial states"
   ctx = (context = l.layers.context_layer.in_dims,)
   other = invoke(Lux.initialstates, Tuple{AbstractRNG, Lux.AbstractLuxWrapperLayer}, rng, l)
   #other = context_state_finder(other, ctx.context)
   #standard = NamedTuple{layers}(Lux.initialstates.(rng, getfield.((l,), layers)))
   
-  println("hi", ctx)
-  println(other)
+  @debug "context and other" ctx=ctx other=other
   return merge(ctx, other)
 end
 
@@ -159,9 +163,9 @@ function context_state_finder(st::NamedTuple, context_val)
     if k == :context_layer
       st = merge(st,(context_layer = (context = context_val,),))
     elseif startswith(string(k), "internal_layer")
-      println("found internal layer", k)
+      @debug "found internal layer" k=k
       internal_st = st[k]
-      println("internal_st", internal_st)
+      @debug "internal_st" internal_st
       internal_st = merge(internal_st, (layer_3 = (context = context_val,),)) # Assumes layer 3 is a context layer
 
       st = merge(st, NamedTuple{(k,)}((internal_st,)))
@@ -183,26 +187,23 @@ function set_context(st::NamedTuple, x::AbstractVecOrMat)
   context = x[end-context_dim+1:end,:]
   x = x[1:end-context_dim,:]
   st = context_state_finder(st, context)
-  println("context", context)
-  println("x", x)
+  @debug "set_context" context=context x=x
   return st, x
 end
 
 
 function debug_merge(st1, st2)
-  # Merge the two states and print the debug information
-  println("Debugging merge of states:")
-  println("State 1:", st1)
-  println("State 2:", st2)
+  # Merge the two states and log the debug information
+  @debug "Merging states" st1=st1 st2=st2
   merged_st = merge(st1, st2)
-  println("Merged state:", merged_st)
+  @debug "Merged state" merged_st=merged_st
   return merged_st
 end
 
 function (c::MADE_relu_conditional)(x, ps, st::NamedTuple)
-  println("using custom dispatch, MADE_relu_conditional")
+  @debug "using custom dispatch, MADE_relu_conditional"
   st, x = set_context(st, x)
-  println("st", st)
+  @debug "st after set_context" st=st
   return applyMADE_relu_conditional(c.layers, x, ps, st)
 end
 
@@ -270,10 +271,10 @@ Lux.statelength(d::context) = 0
 # modified standard dense layer to implement the mask value pointed to by the pointer
 @inline function (d::context)(x::AbstractVecOrMat, ps, st::NamedTuple)
     context = st.context
-    println("context", context)
-    println("ps", ps)
-    println("context_output", x .+ d.activation.((ps.weight) * context .+ ps.bias))
-    return x .+ d.activation.((ps.weight)*context .+ ps.bias), st
+    raw_output = d.activation.((ps.weight) * context .+ ps.bias)
+    context_output = x .+ raw_output
+    @debug "context layer" context=context ps=ps raw_output=raw_output context_output=context_output
+    return context_output, st
 end
 
 # fix any issues with the context lauyer mask, need to check theory here
@@ -331,8 +332,11 @@ function applyMADE_relu_conditional_transform(layers::NamedTuple{fields}, x, ps,
   x_no_context = x[1:end-context_dims, :] # remove the context from the input
   encoder_output, st1 = Lux.apply(layers.context_encoder, context, ps.context_encoder, st.context_encoder)
   # need to create add a coord_transform function that takes the encoder output as parameters
+  #log the input for debug purposes (x)
+  @debug "apply transform" x=x
   MADE_output, st2 = Lux.apply(layers.MADE_relu_conditional, x, ps.MADE_relu_conditional, st.MADE_relu_conditional)
 
+  @debug "MADE_output" MADE_output
   #create a named tuple with st1 and st2
   st3 = NamedTuple{fields}((st2, st1,))
   # Made_outout_state
@@ -345,24 +349,20 @@ function applyMADE_relu_conditional_transform(layers::NamedTuple{fields}, x, ps,
   # lets define coordinate_transform function
 
   reg_output = forward(x_no_context, MADE_output)#normal output placeholder
-  println("x_no_context", x_no_context)
-  println("MADE_output", MADE_output)
-  println("encoder_output", encoder_output)
-  println("reg_output", reg_output)
-  println("inverse_exp", inverse_exp(reg_output, encoder_output))
+  inverse_output = inverse_exp(reg_output, encoder_output)
+  
+  @debug "transform outputs" x_no_context=x_no_context MADE_output=MADE_output encoder_output=encoder_output reg_output=reg_output inverse_output=inverse_output
 
-
-  return inverse_exp(reg_output, encoder_output), st
+  return inverse_output, st
 end
 
 function Lux.initialstates(rng::AbstractRNG, l::MADE_relu_conditional_transform{layers}) where {layers}
-  print("using MADE relu conditional transform initial states")
+  @debug "using MADE relu conditional transform initial states"
   ctx = (context_dims = l.context_dims,)
   other = invoke(Lux.initialstates, Tuple{AbstractRNG, Lux.AbstractLuxWrapperLayer}, rng, l)
   #other = context_state_finder(other, ctx.context)
   #standard = NamedTuple{layers}(Lux.initialstates.(rng, getfield.((l,), layers)))
-  println("hi", ctx)
-  println(other)
+  @debug "context and other" ctx=ctx other=other
   return merge(ctx, other)
 end
 
@@ -388,7 +388,6 @@ Lux.parameterlength(d::ActivationLayer) = 0
 
 # modified standard dense layer to implement the mask value pointed to by the pointer
 @inline function (d::ActivationLayer)(x::AbstractVecOrMat, ps, st::NamedTuple)
-  #print the size of the mask for debugging
+  #log the size of the mask for debugging
     return d.activation.(x), st
 end
-

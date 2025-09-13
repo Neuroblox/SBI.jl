@@ -1,4 +1,4 @@
-using Lux, Optimisers, Random, Zygote
+using Lux, Optimisers, Random, Zygote, Logging
 include("../utils.jl")
 
 function log_std_loss(y_pred, data)
@@ -11,7 +11,7 @@ function log_std_loss(y_pred, data)
     half1 = @view y_pred[1:n,:]
     half2 = @view y_pred[n+1:end,:]
 
-    #println(n, half1, half2)
+    #@debug "log_std_loss" n=n half1=half1 half2=half2
     u = (data.-half1).*exp.(-half2)
     negloglike = 0.5*log(2*pi) .+ 0.5.*(u.^2) .+ half2
     negloglike = mean(negloglike, dims=2)
@@ -27,40 +27,31 @@ end
 function log_std_loss2(y_pred, data, extra)
     sum_output = sum(extra)
 
-    #println(extra)
-    #println("logstd_loss2_called")
-    #println(size(y_pred),size(data))
-    #print(data)
+    @debug "log_std_loss2 called" extra=extra y_pred_size=size(y_pred) data_size=size(data)
     n = div(size(y_pred)[1], 2)
     half1 = @view y_pred[1:n,:]
     half2 = @view y_pred[n+1:end,:]
 
     half2_all = @view sum_output[n+1:end,:]
-    #println(y_pred)
-    #println(n, half1, half2)
+    @debug "log_std_loss2 intermediate values" y_pred=y_pred n=n half1=half1 half2=half2
 
-    #print("This is the set of variances fo fuck rith offf   ")
-    #println(half2)
-    #print("this is data")
-    #println(data)
-    #println("this is the first half")
-    #println(half1)
+    @debug "Variance values" half2=half2
+    @debug "Data values" data=data
+    @debug "First half values" half1=half1
 
     # ------------------------------------------ THIS IS THE BUG ---------------------------------------
     u = (data.-half1).*exp.(-half2)
-    #println(u)
-    #println("This is right before I need it")
-    #println(size(u), size(half2_all))
+    @debug "Before negloglike calculation" u=u half2_all_size=size(half2_all)
     negloglike = 0.5*log(2*pi) .+ 0.5.*(u.^2) .+ half2_all
 
-    #println("debug negloglike $negloglike")
+    @debug "Calculated negloglike" negloglike=negloglike
 
     negloglike = mean(negloglike, dims=2)
     negloglike = sum(negloglike)
     if (negloglike == Inf) 
         DomainError(val) 
     end
-    #println("about to return negloklike")
+    @debug "About to return negloglike"
     return negloglike
 end
 
@@ -69,20 +60,18 @@ function log_std_loss2_smooth(y_pred, data, extra)
 
     n = div(size(y_pred)[1], 2)
     half2_all = @view sum_output[n+1:end,:] # note do I add the 1e-3
-    #println(sum(mean(half2_all, dims=2)))
+    @debug "log_std_loss2_smooth" sum_mean_half2_all=sum(mean(half2_all, dims=2))
     # ------------------------------------------ THIS IS THE BUG ---------------------------------------
-    #println("y_pred", y_pred)
+    @debug "y_pred values" y_pred=y_pred
     u = forward(data, y_pred)
     negloglike = 0.5*log(2*pi) .+ 0.5.*(u.^2)
     loglike = -negloglike
     scale = softplus.(half2_all) .+ 1e-3
     logscale = log.(scale)
-    #println("before det", loglike)
-    #println("half2_all", half2_all)
-    #println("loglike", loglike)
-    #println("logscale", logscale)
+    @debug "Before determinant calculation" loglike=loglike
+    @debug "Intermediate values" half2_all=half2_all loglike=loglike logscale=logscale
     loglike = loglike + half2_all
-    #println("after det", half2_all)
+    @debug "After determinant calculation" half2_all=half2_all
     loglike = mean(loglike, dims=2)
     loglike = sum(loglike)
     #if (negloglike == Inf) 
@@ -96,9 +85,9 @@ function log_conditional_maf_smooth(y_pred, data, extra)
 
     n = div(size(y_pred)[1], 2)
     half2_all = @view sum_output[n+1:end,:] # note do I add the 1e-3
-    #println(sum(mean(half2_all, dims=2)))
+    @debug "log_conditional_maf_smooth" sum_mean_half2_all=sum(mean(half2_all, dims=2))
     # ------------------------------------------ THIS IS THE BUG ---------------------------------------
-    #println("y_pred", y_pred)
+    @debug "y_pred values" y_pred=y_pred
     u = forward(data, y_pred)
 
     # Note the next line is wrong
@@ -108,12 +97,10 @@ function log_conditional_maf_smooth(y_pred, data, extra)
     loglike = -negloglike
     scale = softplus.(half2_all) .+ 1e-3
     logscale = log.(scale)
-    #println("before det", loglike)
-    #println("half2_all", half2_all)
-    #println("loglike", loglike)
-    #println("logscale", logscale)
+    @debug "Before determinant calculation" loglike=loglike
+    @debug "Intermediate values" half2_all=half2_all loglike=loglike logscale=logscale
     loglike = loglike + half2_all
-    #println("after det", half2_all)
+    @debug "After determinant calculation" half2_all=half2_all
     loglike = mean(loglike, dims=2)
     loglike = sum(loglike)
     #if (negloglike == Inf) 
@@ -144,22 +131,21 @@ function lux_gaussian_made_loss(model, ps, st, data)
 end
 
 function lux_gaussian_maf_loss(model, ps, st, data)
-    #println("loss function called")
+    @debug "Loss function called"
     y, st, x1, x2...  = Lux.apply(model, data, ps, st)
-    #println("x1", x1)
-    #println("x2", x2)
-    #println(size(x2))
+    @debug "Model applied" x1=x1 x2=x2 x2_size=size(x2)
     if model.softplus
         loss = log_std_loss2_smooth(y, x1, x2) #TODO double check this
-        println("using softmax loss")
+        @debug "Using softmax loss"
     else
         loss = log_std_loss2(y, x1, x2) #TODO double check thiso
-        println("using relu loss")
+        @debug "Using relu loss"
     end
     return loss, st, ()
 end
 
 # New loss function to work with the improved interface
+#not exact but close enough for now
 function logp_conditional_maf_smooth(output, st)
     sum_output = sum(i for i in [st.encoder_output])
     sum_output2 = sum(i for i in [st.MADE_output])
@@ -167,32 +153,28 @@ function logp_conditional_maf_smooth(output, st)
     n = size(output)[1]
     half2_all = @view sum_output[n+1:end,:] # note do I add the 1e-3
     half2_all2 = @view sum_output2[n+1:end,:] # note do I add the 1e-3
-    #println(sum(mean(half2_all, dims=2)))
+    @debug "logp_conditional_maf_smooth" sum_mean_half2_all=sum(mean(half2_all, dims=2))
     # ------------------------------------------ THIS IS THE BUG ---------------------------------------
-    #println("y_pred", y_pred)
+    @debug "y_pred values" y_pred=y_pred
 
     # Note the next line is wrong
     # Need to look at how the context is stored
     #u = conditional_forward(u, y_pred)
     negloglike = 0.5.*(output.^2)
     loglike = -negloglike
-    println(loglike)
-    #println("before det", loglike)
-    println("half2_all", half2_all)
-    #println("loglike", loglike)
-    #println("logscale", logscale)
+    @debug "Initial loglike" loglike=loglike
+    @debug "Before determinant calculation" half2_all=half2_all
     loglike = loglike .- half2_all
-    println(loglike)
+    @debug "After subtracting half2_all" loglike=loglike
     loglike = loglike .- 0.5*log(2*pi)
-    println(loglike)
+    @debug "After subtracting log(2π) term" loglike=loglike
 
-    #println("after det", half2_all)
     loglike = sum(loglike)
     #is this worth it? I'm not sure, 
     #if (negloglike == Inf) 
     #    DomainError(val) 
     #end
     logabsdet = sum(log.(softplus.(half2_all2)) .+ 1e-3)
-    println("half2all2", logabsdet)
+    @debug "Log absolute determinant" logabsdet=logabsdet
     return loglike + logabsdet
 end
