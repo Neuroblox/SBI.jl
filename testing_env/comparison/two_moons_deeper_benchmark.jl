@@ -8,12 +8,12 @@ using Sbi
 using CairoMakie
 
 import MLUtils: DataLoader, splitobs
-include("../../src/utils.jl")
+include("../src/utils.jl")
 
 using JSON3
 
 # filepath: /home/simon/Code/SBI.jl/testing_env/twoMoons.json
-file_path = "/home/simon/Code/SBI.jl/testing_env/twoMoons.json"
+file_path = "/home/simon/Code/SBI.jl/testing_env/testing_utils/twoMoons.json"
 
 # Read and parse the JSON file
 data = JSON3.read(open(file_path))
