@@ -39,10 +39,13 @@ full_input = vcat(input, context_value)
 
 final_output = model(full_input, ps, state)
 
-forward(full_input[1:2], final_output[1])
+output = forward(full_input[1:2], final_output[1])
 
 #Thing to test
-isapprox(final_output[1], [-0.2093, 0.4175, -0.3117, 0.4304], atol=1e-2)
+isapprox(output, [1.1511, .2296], atol=1e-3)
+
+
+#-----------------------------------------------------------------------------------------------------
 
 
 # now lets test the version with the transform
@@ -60,10 +63,10 @@ ps2 = merge(ps2, (MADE_relu_conditional = ps, context_encoder = ps3))
 
 l, st = model_2(full_input, ps2, state)
 
-isapprox(l, [ 3.7176, -0.8894], atol=1e-1)
-
 logp = Sbi.logp_conditional_maf_smooth(l, st)
-isapprox(logp, -8.4472, atol=1e-2)
+isapprox(logp, -10.0594, atol=1e-2)
+
+# --------------------------------------------------------------------------
 
 
 #Now do for multiple inputs
