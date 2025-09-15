@@ -25,7 +25,7 @@ function forward(u, made_output)
     if haskey(ENV, "JULIA_DEBUG") && ENV["JULIA_DEBUG"] == "sbi"
         println("Forward function result: result=$result")
     end
-    return result
+    return result, logstd_sum
 end
 
 # add epsilon, check if I didnt mess up forward and inverse
