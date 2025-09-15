@@ -22,3 +22,13 @@ docs/site/
 # committed for packages, but should be committed for applications that require a static
 # environment.
 Manifest.toml
+
+# some other stuff to clean it up
+`# Ignore all CSV files
+*.csv
+
+# Ignore all PNG files
+*.png
+
+# Ignore everything in the transform_sample directory
+transform_samples/
