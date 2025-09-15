@@ -417,3 +417,26 @@ Lux.parameterlength(d::ActivationLayer) = 0
   #log the size of the mask for debugging
     return d.activation.(x), st
 end
+
+
+
+@concrete struct MAF_relu_conditional <: Lux.AbstractLuxWrapperLayer{:layers}
+    layers <: NamedTuple
+    context_dim::Int
+end
+
+
+function MAF_relu_conditional(layers...; context_dims=1)
+  # check length of layers and make sure its length 2 or throw an expr_forward
+  if length(layers) != 2
+    throw(ArgumentError("MAF_relu_conditional requires 2 layers"))
+  end
+
+
+  names = ntuple(i -> Symbol("MADE_$i"), length(layers))
+  
+  # create named tuple for the layers
+  layers = NamedTuple{names}(layers)
+
+  return MAF_relu_conditional(layers, context_dims)
+end

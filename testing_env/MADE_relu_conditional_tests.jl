@@ -99,4 +99,11 @@ include("testing_env/testing_utils/comparison_utilities.jl")
         expected = [1.0, 2.3, 0.0]  # ReLU should zero out negative values
         @test isapprox(l2, expected, atol=1e-6)
     end
+
+    @testset "MAF_relu_conditional_test" begin
+        made_1  = Sbi.MADE_relu_conditional_transform(Sbi.MADE_relu_conditional(2, 4, 1, internal_layer_num=2), Dense(1=>4), context_dims=1)
+        made_2  = Sbi.MADE_relu_conditional_transform(Sbi.MADE_relu_conditional(2, 4, 1, internal_layer_num=2), Dense(1=>4), context_dims=1)
+        model =  Sbi.MAF_relu_conditional(made_1, made_2, context_dims=1)
+        ps, state = Lux.setup(rng, model)
+    end
 end
