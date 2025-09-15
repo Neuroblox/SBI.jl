@@ -32,6 +32,7 @@ include("testing_env/testing_utils/comparison_utilities.jl")
         output = forward(full_input[1:2], final_output[1])
         
         @test isapprox(output[1], [1.1511, 0.2296], atol=1e-3)
+        @test isapprox(output[2], -0.9639, atol=1e-2) # not exact, should investigate if I run into issues
     end
     
     @testset "MADE_relu_conditional_transform Single Input Test" begin

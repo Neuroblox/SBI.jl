@@ -358,11 +358,12 @@ function applyMADE_relu_conditional_transform(layers::NamedTuple{fields}, x, ps,
   #@debug "apply transform" x=x
   MADE_output, st2 = Lux.apply(layers.MADE_relu_conditional, x, ps.MADE_relu_conditional, st.MADE_relu_conditional)
 
+  reg_output, logabsdet = forward(x_no_context, MADE_output)
   #@debug "MADE_output" MADE_output
   #create a named tuple with st1 and st2
   st3 = NamedTuple{fields}((st2, st1,))
   # Made_outout_state
-  st_MADE = (MADE_output = MADE_output, encoder_output = encoder_output,)
+  st_MADE = (MADE_output = MADE_output, encoder_output = encoder_output, logabsdet = logabsdet,)
 
   st = merge(st, st3)
   st = merge(st, st_MADE)
@@ -371,7 +372,6 @@ function applyMADE_relu_conditional_transform(layers::NamedTuple{fields}, x, ps,
   # lets define coordinate_transform function
 
   #TODO: store the second variable logabsdet(as a state variable)
-  reg_output, _ = forward(x_no_context, MADE_output)#normal output placeholder
   #=
   inverse_output = inverse_exp(reg_output, encoder_output)
   =#
