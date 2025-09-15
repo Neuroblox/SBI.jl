@@ -162,6 +162,7 @@ end
 # New loss function to work with the improved interface
 #not exact but close enough for now
 function logp_conditional_maf_smooth(output, st)
+    output = inverse_exp(output, st.encoder_output)
     sum_output = sum(i for i in [st.encoder_output])
     sum_output2 = sum(i for i in [st.MADE_output])
 

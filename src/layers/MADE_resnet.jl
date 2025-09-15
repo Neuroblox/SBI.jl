@@ -370,12 +370,16 @@ function applyMADE_relu_conditional_transform(layers::NamedTuple{fields}, x, ps,
   # need to know at what state is the coordinate transform applies
   # lets define coordinate_transform function
 
-  reg_output = forward(x_no_context, MADE_output)#normal output placeholder
+  #TODO: store the second variable logabsdet(as a state variable)
+  reg_output, _ = forward(x_no_context, MADE_output)#normal output placeholder
+  #=
   inverse_output = inverse_exp(reg_output, encoder_output)
+  =#
+  
   
   #@debug "transform outputs" x_no_context=x_no_context MADE_output=MADE_output encoder_output=encoder_output reg_output=reg_output inverse_output=inverse_output
 
-  return inverse_output, st
+  return reg_output, st
 end
 
 function Lux.initialstates(rng::AbstractRNG, l::MADE_relu_conditional_transform{layers}) where {layers}
