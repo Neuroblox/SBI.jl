@@ -440,3 +440,14 @@ function MAF_relu_conditional(layers...; context_dims=1)
 
   return MAF_relu_conditional(layers, context_dims)
 end
+
+
+# Define the forward mode behavior
+function (c::MAF_relu_conditional)(x, ps, st::NamedTuple)
+    return ApplyMAF_relu_conditional(c.layers, x, ps, st)
+end
+
+#place holder for now
+function ApplyMAF_relu_conditional(layers::NamedTuple{fields}, x, ps,
+  st::NamedTuple) where {fields}
+  return ("MAF_relu_conditional not implemented yet", st)
