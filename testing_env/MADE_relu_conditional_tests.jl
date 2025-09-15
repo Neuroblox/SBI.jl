@@ -9,8 +9,8 @@ using Sbi
 using CairoMakie
 
 import MLUtils: DataLoader, splitobs
-include("../src/utils.jl")
-include("./testing_utils/comparison_utilities.jl")
+include("src/utils.jl")
+include("testing_env/testing_utils/comparison_utilities.jl")
 
 @testset "MADE_relu_conditional_transform Tests" begin
     
