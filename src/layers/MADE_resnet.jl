@@ -449,5 +449,25 @@ end
 #place holder for now
 function ApplyMAF_relu_conditional(layers::NamedTuple{fields}, x, ps,
   st::NamedTuple) where {fields}
+
+  for (i, f) in enumerate(fields)
+    println("field $i: $f")
+  end
+
+  current_x = x
+  st_outputs = []
+  context_dims = st.MADE_1.context_dims
+  context = x[end-context_dims+1:end, :] # get the context from the input
+  current_x = x[1:end-context_dims, :] # remove the context from the input
+  
+  # Chain through all layers
+  for (i, field) in enumerate(fields)
+
+    current_x, layer_st = Lux.apply(layers[field], vcat(current_x, context), ps[field], st[field])
+    println("after layer $i: current_x=$current_x")
+    push!(st_outputs, layer_st)
+  end
+  
+
   return ("MAF_relu_conditional not implemented yet", st)
 end
