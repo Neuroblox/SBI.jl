@@ -3,7 +3,6 @@ using Lux
 using ConcreteStructs
 using Static
 using SIMDTypes
-using Logging
 
 const BoolType = Union{StaticBool, Bool, Val{true}, Val{false}}
 

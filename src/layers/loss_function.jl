@@ -1,4 +1,4 @@
-using Lux, Optimisers, Random, Zygote, Logging
+using Lux, Optimisers, Random, Zygote
 include("../utils.jl")
 
 function log_std_loss(y_pred, data)

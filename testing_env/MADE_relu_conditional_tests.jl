@@ -9,8 +9,8 @@ using Sbi
 using CairoMakie
 
 import MLUtils: DataLoader, splitobs
-include("src/utils.jl")
-include("testing_env/testing_utils/comparison_utilities.jl")
+include("./src/utils.jl")
+include("./testing_env/testing_utils/comparison_utilities.jl")
 
 @testset "MADE_relu_conditional_transform Tests" begin
     
@@ -72,7 +72,7 @@ include("testing_env/testing_utils/comparison_utilities.jl")
         
         ps3 = load_and_set_weights_context_encoder(context_ps, "/home/simon/Code/SBI.jl/testing_env/testing_utils/context_encoder_parameters.json")
         ps2 = merge(ps2, (MADE_relu_conditional = ps, context_encoder = ps3))
-                l, st = model_2(full_input, ps2, state)
+
         input = [1.0887 -0.3943; 0.5 -0.5; 0.1 0.2]'
         context_value = [1.0 2.0 -1.0]
         full_input = vcat(input, context_value)
@@ -81,7 +81,7 @@ include("testing_env/testing_utils/comparison_utilities.jl")
         
         rearranged = [0.1639   0.1639   0.1639;
                       0.3955  -0.1560  -0.3617;
-                      0.387u7   0.3877   0.3877;
+                      0.3877   0.3877   0.3877;
                      -0.6512  -0.6731  -0.2559]
         
         @test isapprox(st.MADE_output, rearranged, atol=1e-3)

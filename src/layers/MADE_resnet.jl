@@ -3,7 +3,6 @@ using Lux
 using ConcreteStructs
 using Static
 using SIMDTypes
-using Logging
 
 const BoolType = Union{StaticBool, Bool, Val{true}, Val{false}}
 
@@ -451,3 +450,4 @@ end
 function ApplyMAF_relu_conditional(layers::NamedTuple{fields}, x, ps,
   st::NamedTuple) where {fields}
   return ("MAF_relu_conditional not implemented yet", st)
+end
