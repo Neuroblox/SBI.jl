@@ -117,7 +117,7 @@ function load_and_set_weights_context_encoder(ps, json_file_path::String)
 end
 
 
-function load_and_set_weights_simple_MAF(ps, json_file_path_1::String, json_file_path_2::String)
+function load_and_set_weights_MAF_relu_conditional(ps, json_file_path_1::String, json_file_path_2::String)
     # Read and parse the JSON file
     ps1 = load_and_set_weights_MADE_relu_conditional(ps.MADE_1, json_file_path_1)
     ps2 = load_and_set_weights_MADE_relu_conditional(ps.MADE_2, json_file_path_2)
