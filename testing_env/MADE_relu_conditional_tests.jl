@@ -22,7 +22,7 @@ include("./testing_env/testing_utils/comparison_utilities.jl")
         model = Sbi.MADE_relu_conditional(2, 4, 1, internal_layer_num=2)
         ps, state = Lux.setup(rng, model)
         
-        ps = load_and_set_weights_MADE_relu_conditional(ps, "/home/simon/Code/SBI.jl/testing_env/testing_utils/layer_parameters.json")
+        ps = load_and_set_weights_MADE_relu_conditional(ps, "./testing_env/testing_utils/layer_parameters.json")
         
         input = [1.0887, -0.3943]
         context_value = [1.0]
@@ -38,7 +38,7 @@ include("./testing_env/testing_utils/comparison_utilities.jl")
     @testset "MADE_relu_conditional_transform Single Input Test" begin
         model = Sbi.MADE_relu_conditional(2, 4, 1, internal_layer_num=2)
         ps, state = Lux.setup(rng, model)
-        ps = load_and_set_weights_MADE_relu_conditional(ps, "/home/simon/Code/SBI.jl/testing_env/testing_utils/layer_parameters.json")
+        ps = load_and_set_weights_MADE_relu_conditional(ps, "./testing_env/testing_utils/layer_parameters.json")
         
         context_encoder = Dense(1=>4)
         model_2 = Sbi.MADE_relu_conditional_transform(model, context_encoder, context_dims=1)
@@ -46,7 +46,7 @@ include("./testing_env/testing_utils/comparison_utilities.jl")
         ps2, state = Lux.setup(rng, model_2)
         context_ps, context_state = Lux.setup(rng, context_encoder)
         
-        ps3 = load_and_set_weights_context_encoder(context_ps, "/home/simon/Code/SBI.jl/testing_env/testing_utils/context_encoder_parameters.json")
+        ps3 = load_and_set_weights_context_encoder(context_ps, "./testing_env/testing_utils/context_encoder_parameters.json")
         ps2 = merge(ps2, (MADE_relu_conditional = ps, context_encoder = ps3))
         
         input = [1.0887, -0.3943]
@@ -62,7 +62,7 @@ include("./testing_env/testing_utils/comparison_utilities.jl")
     @testset "MADE_relu_conditional_transform Multiple Inputs Test" begin
         model = Sbi.MADE_relu_conditional(2, 4, 1, internal_layer_num=2)
         ps, state = Lux.setup(rng, model)
-        ps = load_and_set_weights_MADE_relu_conditional(ps, "/home/simon/Code/SBI.jl/testing_env/testing_utils/layer_parameters.json")
+        ps = load_and_set_weights_MADE_relu_conditional(ps, "./testing_env/testing_utils/layer_parameters.json")
         
         context_encoder = Dense(1=>4)
         model_2 = Sbi.MADE_relu_conditional_transform(model, context_encoder, context_dims=1)
@@ -70,7 +70,7 @@ include("./testing_env/testing_utils/comparison_utilities.jl")
         ps2, state = Lux.setup(rng, model_2)
         context_ps, context_state = Lux.setup(rng, context_encoder)
         
-        ps3 = load_and_set_weights_context_encoder(context_ps, "/home/simon/Code/SBI.jl/testing_env/testing_utils/context_encoder_parameters.json")
+        ps3 = load_and_set_weights_context_encoder(context_ps, "./testing_env/testing_utils/context_encoder_parameters.json")
         ps2 = merge(ps2, (MADE_relu_conditional = ps, context_encoder = ps3))
 
         input = [1.0887 -0.3943; 0.5 -0.5; 0.1 0.2]'
@@ -105,7 +105,7 @@ include("./testing_env/testing_utils/comparison_utilities.jl")
         made_2  = Sbi.MADE_relu_conditional_transform(Sbi.MADE_relu_conditional(2, 4, 1, internal_layer_num=2), Dense(1=>4), context_dims=1)
         model =  Sbi.MAF_relu_conditional(made_1, made_2, context_dims=1)
         ps, state = Lux.setup(rng, model)
-        ps = load_and_set_weights_MAF_relu_conditional(ps, "/home/simon/Code/SBI.jl/testing_env/testing_utils/layer_parameters.json")
+        ps = load_and_set_weights_MAF_relu_conditional(ps, "./testing_env/testing_utils/layer_parameters.json")
 
 
         input = [1.0887, -0.3943]
