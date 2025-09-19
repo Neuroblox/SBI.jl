@@ -119,10 +119,19 @@ end
 
 function load_and_set_weights_MAF_relu_conditional(ps, json_file_path_1::String, json_file_path_2::String)
     # Read and parse the JSON file
-    ps1 = load_and_set_weights_MADE_relu_conditional(ps.MADE_1, json_file_path_1)
-    ps2 = load_and_set_weights_MADE_relu_conditional(ps.MADE_2, json_file_path_2)
+    ps1 = load_and_set_weights_MADE_relu_conditional_transform(ps.MADE_1, json_file_path_1)
+    ps2 = load_and_set_weights_MADE_relu_conditional_transform(ps.MADE_2, json_file_path_2)
     # reverse the inputs so we can stay consistent with the python benchmark validation
     @set! ps2.MADE_relu_conditional.initial_layer.weight = ps2.MADE_relu_conditional.initial_layer.weight[:, [2,1]] 
-    ps = merge(ps, (MADE_relu_1 = ps1, MADE_relu_2 = ps2))
+    ps = merge(ps, (MADE_1 = ps1, MADE_2 = ps2))
+    return ps
+end
+
+function load_and_set_weights_MADE_relu_conditional_transform(ps, json_file_path_1::String)
+    # Read and parse the JSON file
+    ps_sub = load_and_set_weights_MADE_relu_conditional(ps.MADE_relu_conditional, json_file_path_1)
+
+    ps_context = load_and_set_weights_context_encoder(ps.context_encoder, "./testing_env/testing_utils/context_encoder_parameters.json")
+    ps = merge(ps, (MADE_relu_conditional = ps_sub, context_encoder = ps_context))
     return ps
 end

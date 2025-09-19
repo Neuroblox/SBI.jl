@@ -105,14 +105,14 @@ include("./testing_env/testing_utils/comparison_utilities.jl")
         made_2  = Sbi.MADE_relu_conditional_transform(Sbi.MADE_relu_conditional(2, 4, 1, internal_layer_num=2), Dense(1=>4), context_dims=1)
         model =  Sbi.MAF_relu_conditional(made_1, made_2, context_dims=1)
         ps, state = Lux.setup(rng, model)
-        ps = load_and_set_weights_MAF_relu_conditional(ps, "./testing_env/testing_utils/layer_parameters.json")
+        ps = load_and_set_weights_MAF_relu_conditional(ps, "./testing_env/testing_utils/layer_parameters_deep_1.json", "./testing_env/testing_utils/layer_parameters_deep_2.json")
 
 
         input = [1.0887, -0.3943]
         context_value = [1.0]
         full_input = vcat(input, context_value)
         
-        l, st = model_2(full_input, ps2, state)
+        l, st = model(full_input, ps, state)
 
         @test isapprox(l, [1.1511, 0.2296], atol=1e-3)
     end
