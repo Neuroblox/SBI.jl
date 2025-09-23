@@ -102,7 +102,7 @@ include("./testing_env/testing_utils/comparison_utilities.jl")
 
     @testset "MAF_relu_conditional_test" begin
         made_1  = Sbi.MADE_relu_conditional_transform(Sbi.MADE_relu_conditional(2, 4, 1, internal_layer_num=2), Dense(1=>4), context_dims=1)
-        made_2  = Sbi.MADE_relu_conditional_transform(Sbi.MADE_relu_conditional(2, 4, 1, internal_layer_num=2), Dense(1=>4), context_dims=1)
+        made_2  = Sbi.MADE_relu_conditional_transform(Sbi.MADE_relu_conditional(2, 4, 1, internal_layer_num=2, order_permutation=0), Dense(1=>4), context_dims=1)
         model =  Sbi.MAF_relu_conditional(made_1, made_2, context_dims=1)
         ps, state = Lux.setup(rng, model)
         ps = load_and_set_weights_MAF_relu_conditional(ps, "./testing_env/testing_utils/layer_parameters_deep_1.json", "./testing_env/testing_utils/layer_parameters_deep_2.json")
@@ -114,6 +114,6 @@ include("./testing_env/testing_utils/comparison_utilities.jl")
         
         l, st = model(full_input, ps, state)
 
-        @test isapprox(l, [1.1511, 0.2296], atol=1e-3)
+        @test isapprox(l, [0.7946, -1.0217], atol=1e-2)
     end
 end

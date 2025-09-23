@@ -123,6 +123,8 @@ function load_and_set_weights_MAF_relu_conditional(ps, json_file_path_1::String,
     ps2 = load_and_set_weights_MADE_relu_conditional_transform(ps.MADE_2, json_file_path_2)
     # reverse the inputs so we can stay consistent with the python benchmark validation
     @set! ps2.MADE_relu_conditional.initial_layer.weight = ps2.MADE_relu_conditional.initial_layer.weight[:, [2,1]] 
+    @set! ps2.MADE_relu_conditional.final_layer.weight = ps2.MADE_relu_conditional.final_layer.weight[[2,3, 4, 1], :] 
+    @set! ps2.MADE_relu_conditional.final_layer.bias = ps2.MADE_relu_conditional.final_layer.bias[[4,1, 2, 3]] 
     ps = merge(ps, (MADE_1 = ps1, MADE_2 = ps2))
     return ps
 end
