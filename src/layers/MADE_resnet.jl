@@ -469,5 +469,5 @@ function ApplyMAF_relu_conditional(layers::NamedTuple{fields}, x, ps,
   end
   
 
-  return ("MAF_relu_conditional not implemented yet", st)
+  return (current_x, st)
 end
