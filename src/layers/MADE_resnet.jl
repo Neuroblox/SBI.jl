@@ -459,6 +459,8 @@ function ApplyMAF_relu_conditional(layers::NamedTuple{fields}, x, ps,
   context_dims = st.MADE_1.context_dims
   context = x[end-context_dims+1:end, :] # get the context from the input
   current_x = x[1:end-context_dims, :] # remove the context from the input
+
+  logabsdet = 0.0
   
   # Chain through all layers
   for (i, field) in enumerate(fields)
@@ -466,8 +468,15 @@ function ApplyMAF_relu_conditional(layers::NamedTuple{fields}, x, ps,
     current_x, layer_st = Lux.apply(layers[field], vcat(current_x, context), ps[field], st[field])
     println("after layer $i: current_x=$current_x")
     push!(st_outputs, layer_st)
+
+    logabsdet += layer_st.logabsdet
   end
   
+  final_st = NamedTuple{fields}(Tuple(st_outputs))
+  st = merge(st, final_st)
+  st = merge(st, (total_logabsdet = logabsdet,))
 
   return (current_x, st)
 end
+
+

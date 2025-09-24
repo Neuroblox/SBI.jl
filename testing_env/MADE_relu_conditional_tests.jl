@@ -117,6 +117,6 @@ include("./testing_env/testing_utils/comparison_utilities.jl")
         @test isapprox(l, [0.7946, -1.0217], atol=1e-2)
 
         #this tests consistency in the total logabsdet
-        @test isapprox(st.total_logabsdet, [-1.2541], atol=1e-2)
+        @test isapprox(st.total_logabsdet, -1.2541, atol=1e-2)
     end
 end
