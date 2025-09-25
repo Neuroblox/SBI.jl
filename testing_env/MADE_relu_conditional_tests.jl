@@ -123,4 +123,30 @@ include("./testing_env/testing_utils/comparison_utilities.jl")
 
         @test isapprox(logp, -4.6145, atol=1e-2)
     end
+    @testset "MAF_relu_conditional_test Multiple inputs" begin
+        made_1  = Sbi.MADE_relu_conditional_transform(Sbi.MADE_relu_conditional(2, 4, 1, internal_layer_num=2), Dense(1=>4), context_dims=1)
+        made_2  = Sbi.MADE_relu_conditional_transform(Sbi.MADE_relu_conditional(2, 4, 1, internal_layer_num=2, order_permutation=0), Dense(1=>4), context_dims=1)
+        model =  Sbi.MAF_relu_conditional(made_1, made_2, context_dims=1)
+        ps, state = Lux.setup(rng, model)
+        ps = load_and_set_weights_MAF_relu_conditional(ps, "./testing_env/testing_utils/layer_parameters_deep_1.json", "./testing_env/testing_utils/layer_parameters_deep_2.json")
+
+
+        input = [1.0887 -0.3943; 0.5 -0.5; 0.1 0.2]'
+        context_value = [1.0 2.0 -1.0]
+        full_input = vcat(input, context_value)
+        
+        l, st = model(full_input, ps, state)
+
+        output = [ 0.2119 0.1143 -0.2973 -0.1032;
+                   0.2119 0.1143 -0.2569 -0.1879;
+                   0.2119 0.1143 -0.1305 -0.0175]
+        @test isapprox(l, output', atol=1e-2)
+
+        #this tests consistency in the total logabsdet
+        @test isapprox(st.logabsdet, [-0.8792, -0.9565, -0.8531], atol=1e-2)
+
+        logp = Sbi.logp_conditional_MAF_smooth(l, st)
+
+        @test isapprox(logp, sum([-4.6145, -5.2438, -7.3418]), atol=1e-2)
+    end
 end
