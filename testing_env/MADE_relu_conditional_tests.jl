@@ -114,9 +114,13 @@ include("./testing_env/testing_utils/comparison_utilities.jl")
         
         l, st = model(full_input, ps, state)
 
-        @test isapprox(l, [0.7946, -1.0217], atol=1e-2)
+        @test isapprox(l, [0.6234, -0.4658], atol=1e-2)
 
         #this tests consistency in the total logabsdet
-        @test isapprox(st.total_logabsdet, -1.2541, atol=1e-2)
+        @test isapprox(st.logabsdet, -0.8792, atol=1e-2)
+
+        logp = Sbi.logp_conditional_MAF_smooth(l, st)
+
+        @test isapprox(logp, -4.6145, atol=1e-2)
     end
 end
