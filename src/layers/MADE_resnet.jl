@@ -474,7 +474,7 @@ function ApplyMAF_relu_conditional(layers::NamedTuple{fields}, x, ps,
   
   final_st = NamedTuple{fields}(Tuple(st_outputs))
   st = merge(st, final_st)
-  st = merge(st, (total_logabsdet = logabsdet,))
+  st = merge(st, (logabsdet = logabsdet,))
 
   return (current_x, st)
 end
