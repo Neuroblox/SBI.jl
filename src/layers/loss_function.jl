@@ -194,3 +194,25 @@ function logp_conditional_maf_smooth(output, st)
     #@debug "Log absolute determinant" logabsdet=logabsdet
     return loglike + logabsdet
 end
+
+
+function logp_conditional_MAF_smooth(output, st)
+    output = inverse_exp(reverse(output), st.MADE_1.encoder_output)
+    println("Output after inverse_exp: ", output)
+    n = size(output)[1]
+    sum_output = sum(i for i in [st.MADE_1.encoder_output])
+    half2_all = @view sum_output[n+1:end,:] # note do I add the 1e-3
+    
+
+    negloglike = 0.5.*(output.^2)
+    loglike = -negloglike
+    
+    loglike = loglike .- half2_all
+    loglike = loglike .- 0.5*log(2*pi)
+
+    loglike = sum(loglike)
+    
+
+    print("loglike: ", loglike)
+    return loglike + st.logabsdet
+end
